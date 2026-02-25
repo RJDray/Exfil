@@ -180,6 +180,15 @@ static func get_random_loot(room_type: String) -> Array:
 	return result
 
 
+static func get_item_by_name(item_name: String) -> Dictionary:
+	for key in ITEMS:
+		if ITEMS[key]["name"] == item_name:
+			var item: Dictionary = ITEMS[key].duplicate()
+			item["key"] = key
+			return item
+	return {}
+
+
 static func get_all_item_keys() -> Array:
 	return ITEMS.keys()
 

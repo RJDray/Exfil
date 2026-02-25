@@ -115,7 +115,16 @@ const ROOM_ABBREVIATIONS := {
 	"extraction": "EX",
 }
 
-const ENEMY_NAMES := ["Scav", "Raider", "PMC", "Rogue AI Drone", "Feral Dog"]
+const ENEMY_TYPES := {
+	"Scav": { "loot_table": ["Scrap Metal", "Bandage", "Gunpowder"] },
+	"Armoured": { "loot_table": ["Copper Wire", "Circuit Board", "Medkit"] },
+	"Elite": { "loot_table": ["Gold Watch", "USB Drive", "Pistol"] },
+}
+const ENEMY_NAMES_BY_TIER := {
+	"Scav": ["Scav", "Raider", "Feral Dog"],
+	"Armoured": ["PMC", "Armoured Guard"],
+	"Elite": ["Elite Operative", "Rogue AI Drone"],
+}
 
 
 func _generate_map() -> void:
@@ -191,13 +200,24 @@ func _generate_enemies(x: int, y: int) -> Array:
 			count = 2
 
 	for _i in count:
+		# Pick tier based on distance
+		var tier: String
+		if distance >= 6:
+			tier = "Elite"
+		elif distance >= 3:
+			tier = "Armoured"
+		else:
+			tier = "Scav"
+
+		var names: Array = ENEMY_NAMES_BY_TIER[tier]
 		var base_hp := randi_range(20, 40) + GameData.run_count * 5
 		var base_dmg := randi_range(5, 15) + GameData.run_count * 2
 		enemies.append({
-			"name": ENEMY_NAMES[randi() % ENEMY_NAMES.size()],
+			"name": names[randi() % names.size()],
 			"hp": base_hp,
 			"max_hp": base_hp,
 			"damage": base_dmg,
+			"loot_table": ENEMY_TYPES[tier]["loot_table"],
 		})
 
 	return enemies
@@ -534,6 +554,26 @@ func _use_med_combat(index: int) -> void:
 
 # --- Combat ---
 
+func _drop_enemy_loot(enemy: Dictionary) -> void:
+	var loot_table: Array = enemy.get("loot_table", [])
+	if loot_table.is_empty():
+		return
+	var drop_count := randi_range(1, 2)
+	var dropped: Array = []
+	for _i in drop_count:
+		var item_name: String = loot_table[randi() % loot_table.size()]
+		if item_name in dropped:
+			continue
+		dropped.append(item_name)
+		var item: Dictionary = ItemDatabase.get_item_by_name(item_name)
+		if item.is_empty():
+			continue
+		if GameData.add_to_inventory(item):
+			_add_log("[color=#ffb347]Looted %s from enemy[/color]" % item["name"])
+		else:
+			_add_log("[color=#ff4444]%s dropped but too heavy to carry[/color]" % item["name"])
+
+
 func _attack() -> void:
 	var dmg := GameData.get_player_damage()
 	current_enemy["hp"] -= dmg
@@ -541,6 +581,7 @@ func _attack() -> void:
 
 	if current_enemy["hp"] <= 0:
 		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
+		_drop_enemy_loot(current_enemy)
 		# Remove enemy from room
 		var pos := GameData.player_pos
 		var enemies: Array = rooms[pos.x][pos.y]["enemies"]
