@@ -1,0 +1,12 @@
+# Godot 4 gitignore
+.godot/
+*.import
+export_presets.cfg
+*.translation
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Firebase
+firebase-debug.log
