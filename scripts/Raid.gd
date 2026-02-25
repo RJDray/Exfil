@@ -668,6 +668,13 @@ func _enemy_attacks() -> void:
 func _flee() -> void:
 	if randf() < 0.6:
 		_add_log("[color=#ffb347]You break contact and hold position![/color]")
+		# Remove enemy from room so _show_room() doesn't immediately restart combat
+		var pos := GameData.player_pos
+		var room_enemies: Array = rooms[pos.x][pos.y]["enemies"]
+		for i in room_enemies.size():
+			if room_enemies[i] == current_enemy:
+				room_enemies.remove_at(i)
+				break
 		in_combat = false
 		current_enemy = {}
 		_advance_turn(2)
