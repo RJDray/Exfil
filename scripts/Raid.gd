@@ -575,9 +575,21 @@ func _drop_enemy_loot(enemy: Dictionary) -> void:
 
 
 func _attack() -> void:
+	var roll := randf()
 	var dmg := GameData.get_player_damage()
+
+	if roll < 0.15:
+		# 15% miss
+		_add_log("[color=#aaaaaa]MISS! Your attack goes wide.[/color]")
+		dmg = 0
+	elif roll < 0.35:
+		# 20% crit (2x damage)
+		dmg *= 2
+		_add_log("[color=#ff00ff]CRITICAL HIT! You deal %d damage to %s![/color]" % [dmg, current_enemy["name"]])
+	else:
+		_add_log("You hit %s for %d damage." % [current_enemy["name"], dmg])
+
 	current_enemy["hp"] -= dmg
-	_add_log("You hit %s for %d damage." % [current_enemy["name"], dmg])
 
 	if current_enemy["hp"] <= 0:
 		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
@@ -607,9 +619,21 @@ func _attack() -> void:
 
 
 func _enemy_attacks() -> void:
+	var roll := randf()
 	var enemy_dmg: int = current_enemy["damage"]
+
+	if roll < 0.10:
+		# 10% miss
+		_add_log("[color=#aaaaaa]%s MISSES![/color]" % current_enemy["name"])
+		enemy_dmg = 0
+	elif roll < 0.25:
+		# 15% crit (1.5x damage)
+		enemy_dmg = int(enemy_dmg * 1.5)
+		_add_log("[color=#ff0000]CRITICAL HIT! %s deals %d damage![/color]" % [current_enemy["name"], enemy_dmg])
+	else:
+		_add_log("[color=#ff4444]%s hits you for %d damage![/color]" % [current_enemy["name"], enemy_dmg])
+
 	GameData.current_hp -= enemy_dmg
-	_add_log("[color=#ff4444]%s hits you for %d damage![/color]" % [current_enemy["name"], enemy_dmg])
 
 	if GameData.current_hp <= 0:
 		GameData.current_hp = 0
