@@ -26,6 +26,9 @@ var current_enemy: Dictionary = {}
 @onready var log_text: RichTextLabel = %LogText
 @onready var status_label: Label = %StatusLabel
 @onready var minimap_grid: GridContainer = %MinimapGrid
+@onready var minimap_collapse: MarginContainer = %MinimapCollapse
+@onready var map_toggle_btn: Button = %MapToggleBtn
+var minimap_expanded: bool = false
 
 var event_log: Array = []
 
@@ -40,11 +43,18 @@ func _ready() -> void:
 			col.append(false)
 		visited_rooms.append(col)
 	visited_rooms[0][0] = true
+	map_toggle_btn.pressed.connect(_toggle_minimap)
 	_add_log("[color=#ffb347]RAID BEGINS. You have 30 turns. Extract or die.[/color]")
 	_add_log("You drop into the zone at grid [0,0].")
 	_update_ui()
 	_update_minimap()
 	_show_room()
+
+
+func _toggle_minimap() -> void:
+	minimap_expanded = !minimap_expanded
+	minimap_collapse.visible = minimap_expanded
+	map_toggle_btn.text = "📍 MAP  " + ("▲  tap to collapse" if minimap_expanded else "▼  tap to expand")
 
 
 # --- Map Generation ---
