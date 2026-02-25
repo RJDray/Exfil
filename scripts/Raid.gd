@@ -26,7 +26,6 @@ var current_enemy: Dictionary = {}
 @onready var log_text: RichTextLabel = %LogText
 @onready var status_label: Label = %StatusLabel
 @onready var minimap_grid: GridContainer = %MinimapGrid
-@onready var minimap_collapse: MarginContainer = %MinimapCollapse
 @onready var map_toggle_btn: Button = %MapToggleBtn
 var minimap_expanded: bool = false
 
@@ -53,8 +52,8 @@ func _ready() -> void:
 
 func _toggle_minimap() -> void:
 	minimap_expanded = !minimap_expanded
-	minimap_collapse.visible = minimap_expanded
-	map_toggle_btn.text = "📍 MAP  " + ("▲  tap to collapse" if minimap_expanded else "▼  tap to expand")
+	map_toggle_btn.text = "🗺  MAP  " + ("▲" if minimap_expanded else "▼")
+	_update_minimap()
 
 
 # --- Map Generation ---
@@ -266,62 +265,62 @@ func _update_ui() -> void:
 
 
 func _update_minimap() -> void:
-	# Clear existing cells
 	for child in minimap_grid.get_children():
 		child.queue_free()
 
 	var pos := GameData.player_pos
-	var cell_size := 32
+	# Compact: small dots. Expanded: labelled squares.
+	var cell_w := 36 if minimap_expanded else 18
+	var cell_h := 28 if minimap_expanded else 12
+	var font_size := 9 if minimap_expanded else 7
 
-	# Grid displays y=4 at top (north), y=0 at bottom
+	# y=4 at top (north), y=0 at south
 	for y_display in MAP_SIZE:
 		var y := MAP_SIZE - 1 - y_display
 		for x in MAP_SIZE:
 			var cell := Label.new()
-			cell.custom_minimum_size = Vector2(cell_size, cell_size)
+			cell.custom_minimum_size = Vector2(cell_w, cell_h)
 			cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cell.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			cell.add_theme_font_size_override("font_size", 10)
+			cell.add_theme_font_size_override("font_size", font_size)
+			cell.clip_contents = true
 
-			if x == pos.x and y == pos.y:
-				# Current position — bright green
-				var abbr: String = ROOM_ABBREVIATIONS.get(rooms[x][y]["type"], "??")
-				cell.text = abbr
-				cell.add_theme_color_override("font_color", Color(0, 0, 0))
-				var bg := ColorRect.new()
+			var is_current := (x == pos.x and y == pos.y)
+			var room: Dictionary = rooms[x][y]
+			var is_extract: bool = room["is_extract"]
+			var visited: bool = visited_rooms[x][y]
+			var abbr: String = ROOM_ABBREVIATIONS.get(room["type"], "??")
+
+			var bg := ColorRect.new()
+			bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+			bg.show_behind_parent = true
+
+			if is_current:
+				# Player position — bright green
 				bg.color = Color("#00ff41")
-				bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-				bg.show_behind_parent = true
-				cell.add_child(bg)
-			elif visited_rooms[x][y]:
-				var room: Dictionary = rooms[x][y]
-				var abbr: String = ROOM_ABBREVIATIONS.get(room["type"], "??")
-				cell.text = abbr
-				if room["is_extract"]:
-					# Extract point — amber
-					cell.add_theme_color_override("font_color", Color(0, 0, 0))
-					var bg := ColorRect.new()
-					bg.color = Color("#ffb347")
-					bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-					bg.show_behind_parent = true
-					cell.add_child(bg)
-				else:
-					# Visited — dark green
-					cell.add_theme_color_override("font_color", Color("#00ff41"))
-					var bg := ColorRect.new()
-					bg.color = Color("#1a3a1a")
-					bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-					bg.show_behind_parent = true
-					cell.add_child(bg)
+				cell.text = abbr if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color(0, 0, 0))
+			elif is_extract and not visited:
+				# Unvisited extract — dim amber (always reveal so player can navigate)
+				bg.color = Color("#2a1800")
+				cell.text = "EX" if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color("#ffb347"))
+			elif is_extract and visited:
+				# Visited extract — bright amber
+				bg.color = Color("#ffb347")
+				cell.text = "EX" if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color(0, 0, 0))
+			elif visited:
+				# Visited normal room — dark green
+				bg.color = Color("#1a3a1a")
+				cell.text = abbr if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color("#00ff41"))
 			else:
-				# Unvisited — dark, no text
+				# Unvisited, unknown — near black
+				bg.color = Color(0.06, 0.06, 0.06)
 				cell.text = ""
-				var bg := ColorRect.new()
-				bg.color = Color(0.08, 0.08, 0.08)
-				bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-				bg.show_behind_parent = true
-				cell.add_child(bg)
 
+			cell.add_child(bg)
 			minimap_grid.add_child(cell)
 
 
@@ -414,7 +413,9 @@ func _show_normal_actions() -> void:
 		if GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
 			_add_action_button(">> EXTRACT <<", _extract, Color(0, 1, 0))
 		else:
-			_add_action_button("> EXTRACT (locked)", _try_extract_early, Color(0.4, 0.4, 0.4))
+			_add_action_button("> EXTRACT (opens turn 25)", _try_extract_early, Color(0.4, 0.4, 0.4))
+	elif GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
+		_add_action_button("⚠ GO TO EX ZONE TO EXTRACT", func(): _add_log("Find an amber EX zone on the map and get there!"), Color(1, 0.4, 0.1))
 
 
 func _show_combat_actions() -> void:
