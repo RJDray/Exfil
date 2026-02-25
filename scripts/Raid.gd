@@ -10,6 +10,7 @@ const MAP_SIZE := 5
 # Map data
 var rooms: Array = []  # 2D array [x][y] of room dictionaries
 var previous_pos: Vector2i = Vector2i(0, 0)
+var visited_rooms: Array = []  # 2D array [x][y] of bools
 
 # Combat state
 var in_combat: bool = false
@@ -24,15 +25,25 @@ var current_enemy: Dictionary = {}
 @onready var action_container: VBoxContainer = %ActionContainer
 @onready var log_text: RichTextLabel = %LogText
 @onready var status_label: Label = %StatusLabel
+@onready var minimap_grid: GridContainer = %MinimapGrid
 
 var event_log: Array = []
 
 
 func _ready() -> void:
 	_generate_map()
+	# Init visited rooms grid
+	visited_rooms = []
+	for x in MAP_SIZE:
+		var col: Array = []
+		for y in MAP_SIZE:
+			col.append(false)
+		visited_rooms.append(col)
+	visited_rooms[0][0] = true
 	_add_log("[color=#ffb347]RAID BEGINS. You have 30 turns. Extract or die.[/color]")
 	_add_log("You drop into the zone at grid [0,0].")
 	_update_ui()
+	_update_minimap()
 	_show_room()
 
 
@@ -91,6 +102,17 @@ const ROOM_DESCRIPTIONS := {
 		"A helicopter pad. Radio static crackles from a broken transmitter.",
 		"Sandbags and wire mark the extraction perimeter. This is the way out.",
 	],
+}
+
+const ROOM_ABBREVIATIONS := {
+	"storage": "SR",
+	"corridor": "CO",
+	"labs": "LA",
+	"office": "OF",
+	"barracks": "BK",
+	"medbay": "MD",
+	"armory": "AR",
+	"extraction": "EX",
 }
 
 const ENEMY_NAMES := ["Scav", "Raider", "PMC", "Rogue AI Drone", "Feral Dog"]
@@ -211,6 +233,66 @@ func _update_ui() -> void:
 		status_label.text = "Extract window opens in %d turns" % (EXTRACT_WINDOW_START - GameData.current_turn)
 	else:
 		status_label.text = "Grid [%d,%d] | Dmg: %d" % [pos.x, pos.y, GameData.get_player_damage()]
+
+
+func _update_minimap() -> void:
+	# Clear existing cells
+	for child in minimap_grid.get_children():
+		child.queue_free()
+
+	var pos := GameData.player_pos
+	var cell_size := 32
+
+	# Grid displays y=4 at top (north), y=0 at bottom
+	for y_display in MAP_SIZE:
+		var y := MAP_SIZE - 1 - y_display
+		for x in MAP_SIZE:
+			var cell := Label.new()
+			cell.custom_minimum_size = Vector2(cell_size, cell_size)
+			cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			cell.add_theme_font_size_override("font_size", 10)
+
+			if x == pos.x and y == pos.y:
+				# Current position — bright green
+				var abbr: String = ROOM_ABBREVIATIONS.get(rooms[x][y]["type"], "??")
+				cell.text = abbr
+				cell.add_theme_color_override("font_color", Color(0, 0, 0))
+				var bg := ColorRect.new()
+				bg.color = Color("#00ff41")
+				bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+				bg.show_behind_parent = true
+				cell.add_child(bg)
+			elif visited_rooms[x][y]:
+				var room: Dictionary = rooms[x][y]
+				var abbr: String = ROOM_ABBREVIATIONS.get(room["type"], "??")
+				cell.text = abbr
+				if room["is_extract"]:
+					# Extract point — amber
+					cell.add_theme_color_override("font_color", Color(0, 0, 0))
+					var bg := ColorRect.new()
+					bg.color = Color("#ffb347")
+					bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+					bg.show_behind_parent = true
+					cell.add_child(bg)
+				else:
+					# Visited — dark green
+					cell.add_theme_color_override("font_color", Color("#00ff41"))
+					var bg := ColorRect.new()
+					bg.color = Color("#1a3a1a")
+					bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+					bg.show_behind_parent = true
+					cell.add_child(bg)
+			else:
+				# Unvisited — dark, no text
+				cell.text = ""
+				var bg := ColorRect.new()
+				bg.color = Color(0.08, 0.08, 0.08)
+				bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+				bg.show_behind_parent = true
+				cell.add_child(bg)
+
+			minimap_grid.add_child(cell)
 
 
 func _show_room() -> void:
@@ -340,9 +422,11 @@ func _move(direction: Vector2i, dir_name: String) -> void:
 		return
 	previous_pos = GameData.player_pos
 	GameData.player_pos += direction
+	visited_rooms[GameData.player_pos.x][GameData.player_pos.y] = true
 	_advance_turn()
 	_add_log("Moved %s to [%d,%d]" % [dir_name, GameData.player_pos.x, GameData.player_pos.y])
 	_update_ui()
+	_update_minimap()
 	_show_room()
 
 
