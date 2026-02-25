@@ -219,8 +219,19 @@ func _generate_enemies(x: int, y: int) -> Array:
 			tier = "Scav"
 
 		var names: Array = ENEMY_NAMES_BY_TIER[tier]
-		var base_hp := randi_range(20, 40) + GameData.run_count * 5
-		var base_dmg := randi_range(5, 15) + GameData.run_count * 2
+		# HP tuned so a 15-dmg pistol kills in 1-2 shots (Scav), 2 (Armoured), 2-3 (Elite)
+		var base_hp: int
+		var base_dmg: int
+		match tier:
+			"Scav":
+				base_hp = randi_range(10, 18) + GameData.run_count * 3
+				base_dmg = randi_range(5, 10) + GameData.run_count * 2
+			"Armoured":
+				base_hp = randi_range(22, 30) + GameData.run_count * 4
+				base_dmg = randi_range(10, 18) + GameData.run_count * 2
+			_: # Elite
+				base_hp = randi_range(38, 55) + GameData.run_count * 5
+				base_dmg = randi_range(18, 28) + GameData.run_count * 3
 		enemies.append({
 			"name": names[randi() % names.size()],
 			"hp": base_hp,
@@ -656,10 +667,9 @@ func _enemy_attacks() -> void:
 
 func _flee() -> void:
 	if randf() < 0.6:
-		_add_log("[color=#ffb347]You disengage and fall back![/color]")
+		_add_log("[color=#ffb347]You break contact and hold position![/color]")
 		in_combat = false
 		current_enemy = {}
-		GameData.player_pos = previous_pos
 		_advance_turn(2)
 		_update_ui()
 		_show_room()

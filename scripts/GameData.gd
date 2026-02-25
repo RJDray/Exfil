@@ -115,6 +115,13 @@ func reset_run_state() -> void:
 	death_turn = 0
 	extracted = false
 	run_score = 0
+	# Starting kit — always begin with a sidearm and basic heals
+	var starter_pistol := {"name": "Basic Pistol", "type": "weapon", "damage": 15, "weight": 1.0, "value": 30}
+	var bandage1 := {"name": "Bandage", "type": "med", "heal": 20, "weight": 0.5, "value": 20}
+	var bandage2 := {"name": "Bandage", "type": "med", "heal": 20, "weight": 0.5, "value": 20}
+	add_to_inventory(starter_pistol)
+	add_to_inventory(bandage1)
+	add_to_inventory(bandage2)
 
 
 func start_new_run() -> void:
