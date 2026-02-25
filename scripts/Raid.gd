@@ -363,7 +363,7 @@ func _loot_room() -> void:
 
 	# Show loot items as pickup buttons
 	for item in room["loot"]:
-		var item_ref := item
+		var item_ref: Dictionary = item
 		var btn_text := "> TAKE: %s (%.1fkg, %dxp)" % [item["name"], item["weight"], item["value"]]
 		_add_action_button(btn_text, func(): _pick_up_item(item_ref), Color(1, 0.702, 0.278))
 
