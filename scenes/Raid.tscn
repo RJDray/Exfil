@@ -1,4 +1,6 @@
-[gd_scene format=3 uid="uid://placeholder_raid"]
+[gd_scene load_steps=2 format=3 uid="uid://placeholder_raid"]
+
+[ext_resource type="Script" path="res://scripts/Raid.gd" id="1"]
 
 [node name="Raid" type="Control"]
 layout_mode = 3
@@ -7,3 +9,148 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.051, 0.051, 0.051, 1)
+
+[node name="MainVBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="MainVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 30)
+theme_override_constants/separation = 8
+
+[node name="TopBarBG" type="ColorRect" parent="MainVBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.1, 0.1, 0.1, 1)
+
+[node name="TopBarContent" type="HBoxContainer" parent="MainVBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="TurnLabel" type="Label" parent="MainVBox/TopBar/TopBarContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 1, 0.255, 1)
+theme_override_font_sizes/font_size = 12
+text = "TURN: 0 / 30"
+
+[node name="HPLabel" type="Label" parent="MainVBox/TopBar/TopBarContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 1, 0.255, 1)
+theme_override_font_sizes/font_size = 12
+text = "HP: 100"
+horizontal_alignment = 1
+
+[node name="WeightLabel" type="Label" parent="MainVBox/TopBar/TopBarContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.702, 0.278, 1)
+theme_override_font_sizes/font_size = 12
+text = "WT: 0/20kg"
+horizontal_alignment = 2
+
+[node name="Divider1" type="HSeparator" parent="MainVBox"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0, 1, 0.255, 0.3)
+
+[node name="RoomTitle" type="Label" parent="MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.702, 0.278, 1)
+theme_override_font_sizes/font_size = 16
+text = "ROOM NAME [0,0]"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ContentVBox" type="VBoxContainer" parent="MainVBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="RoomDesc" type="RichTextLabel" parent="MainVBox/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 60)
+bbcode_enabled = true
+theme_override_colors/default_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/normal_font_size = 13
+fit_content = true
+scroll_active = false
+text = ""
+
+[node name="Divider2" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0, 1, 0.255, 0.2)
+
+[node name="ActionMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="ActionContainer" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/ActionMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Divider3" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0, 1, 0.255, 0.2)
+
+[node name="LogLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
+theme_override_font_sizes/font_size = 10
+text = "— EVENT LOG —"
+horizontal_alignment = 1
+
+[node name="LogText" type="RichTextLabel" parent="MainVBox/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 100)
+bbcode_enabled = true
+theme_override_colors/default_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/normal_font_size = 11
+fit_content = true
+scroll_active = false
+text = ""
+
+[node name="Divider4" type="HSeparator" parent="MainVBox"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0, 1, 0.255, 0.3)
+
+[node name="BottomBar" type="PanelContainer" parent="MainVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="StatusLabel" type="Label" parent="MainVBox/BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.4, 0.4, 1)
+theme_override_font_sizes/font_size = 11
+text = "READY"
+horizontal_alignment = 1
+vertical_alignment = 1
