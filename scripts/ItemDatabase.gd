@@ -310,6 +310,17 @@ static func get_random_loot(room_type: String, scavenger_rank: int = 0) -> Array
 	return result
 
 
+static func get_poi_loot() -> Array:
+	## Returns 3-4 high-value items: guaranteed 1 weapon, 1 med, 1 component, maybe armor.
+	var loot := []
+	loot.append(ITEMS[["shotgun", "smg", "pistol"][randi() % 3]].duplicate())
+	loot.append(ITEMS[["medkit", "stim_injector"][randi() % 2]].duplicate())
+	loot.append(ITEMS[["gun_parts", "circuit_board", "copper_wire"][randi() % 3]].duplicate())
+	if randf() < 0.5:
+		loot.append(ITEMS[["light_armor", "ballistic_vest"][randi() % 2]].duplicate())
+	return loot
+
+
 static func get_item_by_name(item_name: String) -> Dictionary:
 	for key in ITEMS:
 		if ITEMS[key]["name"] == item_name:

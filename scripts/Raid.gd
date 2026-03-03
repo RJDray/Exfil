@@ -3,9 +3,7 @@ extends Control
 ## Core raid gameplay — map generation, turns, movement, loot, combat, extraction.
 
 const MAX_TURNS := 30
-const EXTRACT_WINDOW_START := 25
-const EXTRACT_WINDOW_END := 30
-const MAP_SIZE := 5
+const MAP_SIZE := 7
 
 # Map data
 var rooms: Array = []  # 2D array [x][y] of room dictionaries
@@ -42,8 +40,9 @@ func _ready() -> void:
 			col.append(false)
 		visited_rooms.append(col)
 	visited_rooms[0][0] = true
+	minimap_grid.columns = MAP_SIZE
 	map_toggle_btn.pressed.connect(_toggle_minimap)
-	_add_log("[color=#ffb347]RAID BEGINS. You have 30 turns. Extract or die.[/color]")
+	_add_log("[color=#ffb347]RAID BEGINS. Extract at any EX zone or die.[/color]")
 	_add_log("You drop into the zone at grid [0,0].")
 	_update_ui()
 	_update_minimap()
@@ -135,6 +134,22 @@ const ENEMY_NAMES_BY_TIER := {
 	"Elite": ["Elite Operative", "Rogue AI Drone"],
 }
 
+const POI_NAMES := ["Crashed Helicopter", "Military Cache", "Abandoned Lab", "Command Post", "Weapons Depot"]
+const POI_DESCS := [
+	"Wreckage of a downed bird. Something heavy is guarding it.",
+	"Military supply crates. Still locked. Something growls inside.",
+	"A research outpost. The lights still flicker. You're not alone.",
+	"Enemy command position. An officer waits inside.",
+	"High-value weapons storage. Heavily guarded.",
+]
+
+const POI_BOSSES := [
+	{"name": "Scav Boss", "hp": 90, "damage": 22, "xp": 200, "desc": "A heavily-armed scavenger leader."},
+	{"name": "Rival Operative", "hp": 80, "damage": 25, "xp": 200, "desc": "Trained and dangerous. Here for the same loot."},
+	{"name": "Military Elite", "hp": 110, "damage": 20, "xp": 250, "desc": "Former special forces. Not happy to see you."},
+	{"name": "Cult Enforcer", "hp": 95, "damage": 18, "xp": 200, "desc": "Fanatical. Heavily armoured. Unpredictable."},
+]
+
 
 func _generate_map() -> void:
 	rooms = []
@@ -157,10 +172,10 @@ func _generate_map() -> void:
 				room["is_looted"] = true
 			else:
 				var is_extract := false
-				# Place extract points at far corners/edges
+				# Place extract points at far corners/edges of 7x7 grid
 				if extract_count < 3:
-					if (x >= 3 and y >= 3) or (x == 4 and y >= 2) or (x >= 2 and y == 4):
-						if randf() < 0.4 or (x == 4 and y == 4 and extract_count == 0):
+					if (x >= 5 and y >= 5) or (x == 6 and y >= 4) or (x >= 4 and y == 6):
+						if randf() < 0.4 or (x == 6 and y == 6 and extract_count == 0):
 							is_extract = true
 							extract_count += 1
 
@@ -186,14 +201,34 @@ func _generate_map() -> void:
 	# Guarantee at least 2 extract points
 	if extract_count < 2:
 		for _i in range(2 - extract_count):
-			var ex := randi_range(3, 4)
-			var ey := randi_range(3, 4)
+			var ex := randi_range(5, 6)
+			var ey := randi_range(5, 6)
 			if rooms[ex][ey]["type"] != "extraction":
 				rooms[ex][ey]["type"] = "extraction"
 				rooms[ex][ey]["name"] = "Extraction Point"
 				rooms[ex][ey]["desc"] = "Open ground with clear sight lines. Flares mark the evac zone."
 				rooms[ex][ey]["is_extract"] = true
 				rooms[ex][ey]["loot"] = ItemDatabase.get_random_loot("extraction", scav_rank)
+
+	# Place 2 POI rooms in the middle region (x: 2-5, y: 2-5)
+	var poi_count := 0
+	var poi_attempts := 0
+	while poi_count < 2 and poi_attempts < 20:
+		poi_attempts += 1
+		var px := randi_range(2, 5)
+		var py := randi_range(2, 5)
+		var r: Dictionary = rooms[px][py]
+		if not r.get("is_extract", false) and not r.get("is_poi", false) and not (px == 0 and py == 0):
+			var name_idx := randi() % POI_NAMES.size()
+			r["type"] = "poi"
+			r["name"] = POI_NAMES[name_idx]
+			r["desc"] = POI_DESCS[name_idx]
+			r["is_poi"] = true
+			r["poi_cleared"] = false
+			r["enemies"] = []  # Boss spawns on enter, not pre-generated
+			r["loot"] = []
+			r["is_looted"] = false
+			poi_count += 1
 
 
 func _generate_enemies(x: int, y: int) -> Array:
@@ -247,18 +282,8 @@ func _generate_enemies(x: int, y: int) -> Array:
 # --- UI ---
 
 func _update_ui() -> void:
-	var turn_color := "#00ff41"
-	if GameData.current_turn >= EXTRACT_WINDOW_START:
-		turn_color = "#ff4444"
-	elif GameData.current_turn >= 20:
-		turn_color = "#ffb347"
 	turn_label.text = "TURN: %d / %d" % [GameData.current_turn, MAX_TURNS]
 
-	var hp_color := "#00ff41"
-	if GameData.current_hp < 30:
-		hp_color = "#ff4444"
-	elif GameData.current_hp < 60:
-		hp_color = "#ffb347"
 	hp_label.text = "HP: %d/%d" % [GameData.current_hp, GameData.max_hp]
 
 	weight_label.text = "WT: %.1f/%.0fkg" % [GameData.current_weight, GameData.max_weight]
@@ -268,15 +293,10 @@ func _update_ui() -> void:
 	room_title.text = "%s [%d,%d]" % [room["name"], pos.x, pos.y]
 
 	# Update status bar
-	if GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
-		status_label.text = "!! EXTRACTION WINDOW OPEN — GET OUT NOW !!"
-	elif GameData.current_turn >= 20:
-		status_label.text = "Extract window opens in %d turns" % (EXTRACT_WINDOW_START - GameData.current_turn)
-	else:
-		var armor_text := ""
-		if GameData.get_armor_reduction() > 0:
-			armor_text = " | Armor: -%d%%" % int(GameData.get_armor_reduction() * 100)
-		status_label.text = "Grid [%d,%d] | Dmg: %d%s" % [pos.x, pos.y, GameData.get_player_damage(), armor_text]
+	var armor_text := ""
+	if GameData.get_armor_reduction() > 0:
+		armor_text = " | Armor: -%d%%" % int(GameData.get_armor_reduction() * 100)
+	status_label.text = "Grid [%d,%d] | Dmg: %d%s | EX zones always open" % [pos.x, pos.y, GameData.get_player_damage(), armor_text]
 
 
 func _update_minimap() -> void:
@@ -289,7 +309,7 @@ func _update_minimap() -> void:
 	var cell_h := 28 if minimap_expanded else 12
 	var font_size := 9 if minimap_expanded else 7
 
-	# y=4 at top (north), y=0 at south
+	# y=6 at top (north), y=0 at south
 	for y_display in MAP_SIZE:
 		var y := MAP_SIZE - 1 - y_display
 		for x in MAP_SIZE:
@@ -303,8 +323,11 @@ func _update_minimap() -> void:
 			var is_current := (x == pos.x and y == pos.y)
 			var room: Dictionary = rooms[x][y]
 			var is_extract: bool = room["is_extract"]
+			var is_poi: bool = room.get("is_poi", false)
 			var visited: bool = visited_rooms[x][y]
 			var abbr: String = ROOM_ABBREVIATIONS.get(room["type"], "??")
+			if is_poi:
+				abbr = "⚡"
 
 			var bg := ColorRect.new()
 			bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -314,6 +337,16 @@ func _update_minimap() -> void:
 				# Player position — bright green
 				bg.color = Color("#00ff41")
 				cell.text = abbr if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color(0, 0, 0))
+			elif is_poi and not visited:
+				# Unvisited POI — dim gold (always revealed)
+				bg.color = Color(0.3, 0.25, 0.0)
+				cell.text = "⚡" if minimap_expanded else ""
+				cell.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
+			elif is_poi and visited:
+				# Visited POI — bright gold
+				bg.color = Color(1.0, 0.85, 0.0)
+				cell.text = "⚡" if minimap_expanded else ""
 				cell.add_theme_color_override("font_color", Color(0, 0, 0))
 			elif is_extract and not visited:
 				# Unvisited extract — dim amber (always reveal so player can navigate)
@@ -354,6 +387,25 @@ func _show_room() -> void:
 		room_desc.push_color(Color(0, 1, 0.25))
 		room_desc.add_text("[EXTRACTION POINT]")
 		room_desc.pop()
+
+	# POI boss encounter
+	if room.get("is_poi") and not room.get("poi_cleared", false):
+		# Spawn boss on first entry
+		if room["enemies"].size() == 0 and not in_combat:
+			var boss: Dictionary = POI_BOSSES[randi() % POI_BOSSES.size()].duplicate()
+			boss["max_hp"] = boss["hp"]
+			boss["is_boss"] = true
+			room["enemies"].append(boss)
+			room_desc.newline()
+			room_desc.push_color(Color(1.0, 0.85, 0.0))
+			room_desc.add_text("⚡ POINT OF INTEREST")
+			room_desc.newline()
+			room_desc.add_text("%s — HP: %d" % [boss["name"], boss["hp"]])
+			room_desc.newline()
+			room_desc.add_text(boss["desc"])
+			room_desc.newline()
+			room_desc.add_text("High-value target. Defeat it for major rewards.")
+			room_desc.pop()
 
 	# Check for enemies
 	if room["enemies"].size() > 0 and not in_combat:
@@ -423,14 +475,9 @@ func _show_normal_actions() -> void:
 	# Inventory
 	_add_action_button("> CHECK INVENTORY", _check_inventory, Color(0.6, 0.6, 0.6))
 
-	# Extract
+	# Extract — always available at EX zones
 	if room["is_extract"]:
-		if GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
-			_add_action_button(">> EXTRACT <<", _extract, Color(0, 1, 0))
-		else:
-			_add_action_button("> EXTRACT (opens turn 25)", _try_extract_early, Color(0.4, 0.4, 0.4))
-	elif GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
-		_add_action_button("! GO TO EX ZONE TO EXTRACT", func(): _add_log("Find an amber EX zone on the map and get there!"), Color(1, 0.4, 0.1))
+		_add_action_button(">> EXTRACT <<", _extract, Color(0, 1, 0))
 
 
 func _show_combat_actions() -> void:
@@ -463,9 +510,9 @@ func _show_combat_actions() -> void:
 func _advance_turn(cost: int = 1) -> void:
 	GameData.current_turn += cost
 
-	# Check if past extraction window — permadeath
-	if GameData.current_turn > EXTRACT_WINDOW_END:
-		_add_log("[color=#ff4444]The extraction window has closed. You are trapped.[/color]")
+	# Check if past max turns — permadeath
+	if GameData.current_turn > MAX_TURNS:
+		_add_log("[color=#ff4444]Time's up. You failed to extract.[/color]")
 		_add_log("[color=#ff4444]No one is coming for you.[/color]")
 		await get_tree().create_timer(1.5).timeout
 		_die()
@@ -605,6 +652,18 @@ func _use_med_combat(index: int) -> void:
 
 # --- Combat ---
 
+func _generate_enemy_drops(enemy: Dictionary) -> Array:
+	var drops := []
+	var common_drops := ["cloth_strips", "metal_scrap", "rubber_seal", "adhesive", "copper_wire"]
+	drops.append(ItemDatabase.ITEMS[common_drops[randi() % common_drops.size()]].duplicate())
+	if randf() < 0.4:
+		drops.append(ItemDatabase.ITEMS[common_drops[randi() % common_drops.size()]].duplicate())
+	if enemy.get("name", "").contains("Scav") or enemy.get("name", "").contains("Guard"):
+		if randf() < 0.5:
+			drops.append(ItemDatabase.ITEMS["gun_parts"].duplicate())
+	return drops
+
+
 func _drop_enemy_loot(enemy: Dictionary) -> void:
 	var loot_table: Array = enemy.get("loot_table", [])
 	if loot_table.is_empty():
@@ -647,10 +706,32 @@ func _attack() -> void:
 
 	if current_enemy["hp"] <= 0:
 		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
-		_drop_enemy_loot(current_enemy)
-		# Remove enemy from room
 		var pos := GameData.player_pos
-		var enemies: Array = rooms[pos.x][pos.y]["enemies"]
+		var room: Dictionary = rooms[pos.x][pos.y]
+
+		# Check if this was a POI boss
+		if current_enemy.get("is_boss", false) and room.get("is_poi", false):
+			var boss_xp: int = current_enemy.get("xp", 200)
+			GameData.add_xp(boss_xp)
+			var poi_loot: Array = ItemDatabase.get_poi_loot()
+			room["loot"] = poi_loot
+			room["is_looted"] = false
+			room["poi_cleared"] = true
+			_add_log("[color=#ffdd00]⚡ MAJOR FIND! +%d XP — Premium loot recovered.[/color]" % boss_xp)
+		else:
+			_drop_enemy_loot(current_enemy)
+			# Enemy component drops added to room loot
+			var drops := _generate_enemy_drops(current_enemy)
+			if drops.size() > 0:
+				var drop_names: Array = []
+				for d in drops:
+					room["loot"].append(d)
+					drop_names.append(d["name"])
+				room["is_looted"] = false
+				_add_log("[color=#aaffaa]Enemy dropped: %s[/color]" % ", ".join(drop_names))
+
+		# Remove enemy from room
+		var enemies: Array = room["enemies"]
 		for i in enemies.size():
 			if enemies[i] == current_enemy:
 				enemies.remove_at(i)
@@ -688,9 +769,29 @@ func _use_throwable(index: int) -> void:
 
 	if current_enemy["hp"] <= 0:
 		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
-		_drop_enemy_loot(current_enemy)
 		var pos := GameData.player_pos
-		var enemies: Array = rooms[pos.x][pos.y]["enemies"]
+		var room: Dictionary = rooms[pos.x][pos.y]
+
+		if current_enemy.get("is_boss", false) and room.get("is_poi", false):
+			var boss_xp: int = current_enemy.get("xp", 200)
+			GameData.add_xp(boss_xp)
+			var poi_loot: Array = ItemDatabase.get_poi_loot()
+			room["loot"] = poi_loot
+			room["is_looted"] = false
+			room["poi_cleared"] = true
+			_add_log("[color=#ffdd00]⚡ MAJOR FIND! +%d XP — Premium loot recovered.[/color]" % boss_xp)
+		else:
+			_drop_enemy_loot(current_enemy)
+			var drops := _generate_enemy_drops(current_enemy)
+			if drops.size() > 0:
+				var drop_names: Array = []
+				for d in drops:
+					room["loot"].append(d)
+					drop_names.append(d["name"])
+				room["is_looted"] = false
+				_add_log("[color=#aaffaa]Enemy dropped: %s[/color]" % ", ".join(drop_names))
+
+		var enemies: Array = room["enemies"]
 		for i in enemies.size():
 			if enemies[i] == current_enemy:
 				enemies.remove_at(i)
@@ -781,14 +882,6 @@ func _extract() -> void:
 	GameData.record_extraction(GameData.inventory, score)
 	await get_tree().create_timer(1.0).timeout
 	get_tree().change_scene_to_file("res://scenes/PostRaid.tscn")
-
-
-func _try_extract_early() -> void:
-	var remaining := EXTRACT_WINDOW_START - GameData.current_turn
-	if remaining > 0:
-		_add_log("[color=#ffb347]Extraction not available yet — %d turns remaining.[/color]" % remaining)
-	else:
-		_add_log("[color=#ff4444]Extraction window has closed. You are trapped.[/color]")
 
 
 func _die() -> void:
