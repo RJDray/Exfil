@@ -204,7 +204,7 @@ func _update_craft_display() -> void:
 		btn.add_theme_font_size_override("font_size", 11)
 		if craftable:
 			btn.add_theme_color_override("font_color", Color(0, 1, 0.25))
-			var rid := recipe_id
+			var rid: String = recipe_id
 			btn.pressed.connect(func(): _craft_item(rid))
 		else:
 			btn.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
@@ -302,7 +302,7 @@ func _update_skills_display() -> void:
 				if can_upgrade:
 					btn.text = "UPGRADE (%d SP)" % cost
 					btn.add_theme_color_override("font_color", Color(0, 1, 0.25))
-					var sid := skill_id
+					var sid: String = skill_id
 					btn.pressed.connect(func(): _upgrade_skill(sid))
 				else:
 					if not prereq_met:
