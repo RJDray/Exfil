@@ -418,13 +418,31 @@ func _show_room() -> void:
 
 	# Check for enemies
 	if room["enemies"].size() > 0 and not in_combat:
-		in_combat = true
-		current_enemy = room["enemies"][0]
-		_add_log("[color=#ff4444]CONTACT! %s (HP: %d, DMG: %d)[/color]" % [
-			current_enemy["name"], current_enemy["hp"], current_enemy["damage"]
-		])
-		_show_combat_actions()
-		return
+		var enemy_candidate: Dictionary = room["enemies"][0]
+		var is_boss: bool = enemy_candidate.get("is_boss", false)
+
+		# Sneak check — 65% chance to pass undetected (bosses always spot you)
+		if move_mode == "sneak" and not is_boss:
+			if randf() < 0.65:
+				_add_log("[color=#88aaff]You slip past the %s undetected.[/color]" % enemy_candidate.get("name", "enemy"))
+				# Don't trigger combat — enemies remain in room
+			else:
+				_add_log("[color=#ff4444]SPOTTED! The %s heard you![/color]" % enemy_candidate.get("name", "enemy"))
+				in_combat = true
+				current_enemy = enemy_candidate
+				_add_log("[color=#ff4444]%s (HP: %d, DMG: %d)[/color]" % [
+					current_enemy["name"], current_enemy["hp"], current_enemy["damage"]
+				])
+				_show_combat_actions()
+				return
+		else:
+			in_combat = true
+			current_enemy = enemy_candidate
+			_add_log("[color=#ff4444]CONTACT! %s (HP: %d, DMG: %d)[/color]" % [
+				current_enemy["name"], current_enemy["hp"], current_enemy["damage"]
+			])
+			_show_combat_actions()
+			return
 
 	# Check for loot
 	if not room["is_looted"] and room["loot"].size() > 0:
