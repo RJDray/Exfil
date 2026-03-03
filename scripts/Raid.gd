@@ -5,10 +5,19 @@ extends Control
 const MAX_TURNS := 30
 const MAP_SIZE := 7
 
+const NOISE_CHANCE := {"sneak": 0.0, "normal": 0.10, "sprint": 0.35}
+
+const WANDERING_ENEMIES := [
+	{"name": "Scav Patrol", "hp": 35, "damage": 12, "xp_value": 30, "desc": "A roaming scav drawn by noise."},
+	{"name": "Wandering Guard", "hp": 45, "damage": 14, "xp_value": 35, "desc": "A guard who heard something."},
+	{"name": "Alert Sentry", "hp": 30, "damage": 18, "xp_value": 40, "desc": "Highly trained. On high alert."},
+]
+
 # Map data
 var rooms: Array = []  # 2D array [x][y] of room dictionaries
 var previous_pos: Vector2i = Vector2i(0, 0)
 var visited_rooms: Array = []  # 2D array [x][y] of bools
+var move_mode: String = "normal"
 
 # Combat state
 var in_combat: bool = false
@@ -446,15 +455,70 @@ func _show_normal_actions() -> void:
 	_clear_actions()
 	var pos := GameData.player_pos
 
-	# Movement
+	# Movement mode selector
+	var mode_row_label := Label.new()
+	mode_row_label.text = "MOVEMENT MODE:"
+	mode_row_label.add_theme_font_size_override("font_size", 11)
+	mode_row_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	action_container.add_child(mode_row_label)
+
+	var mode_hbox := HBoxContainer.new()
+	mode_hbox.add_theme_constant_override("separation", 6)
+	action_container.add_child(mode_hbox)
+
+	for mname: String in ["sneak", "normal", "sprint"]:
+		var mbtn := Button.new()
+		match mname:
+			"sneak":
+				mbtn.text = "🤫 SNEAK"
+			"normal":
+				mbtn.text = "🚶 NORMAL"
+			"sprint":
+				mbtn.text = "⚡ SPRINT"
+		mbtn.custom_minimum_size = Vector2(90, 32)
+		mbtn.add_theme_font_size_override("font_size", 11)
+		if mname == move_mode:
+			# Active mode — highlighted
+			mbtn.add_theme_color_override("font_color", Color(1, 1, 0))
+		else:
+			mbtn.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		var m: String = mname
+		mbtn.pressed.connect(func():
+			move_mode = m
+			_update_actions()
+		)
+		mode_hbox.add_child(mbtn)
+
+	# Mode description
+	var mode_desc := Label.new()
+	match move_mode:
+		"sneak":
+			mode_desc.text = "1 block · silent · safe"
+			mode_desc.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
+		"normal":
+			mode_desc.text = "1 block · 10% noise"
+			mode_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		"sprint":
+			mode_desc.text = "2 blocks · 35% noise · may attract enemies"
+			mode_desc.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+	mode_desc.add_theme_font_size_override("font_size", 10)
+	action_container.add_child(mode_desc)
+
+	# Direction buttons (adapted text per mode)
+	var dir_prefix: String = ""
+	match move_mode:
+		"sneak": dir_prefix = "SNEAK"
+		"normal": dir_prefix = "MOVE"
+		"sprint": dir_prefix = "SPRINT"
+
 	if pos.y < MAP_SIZE - 1:
-		_add_action_button("> MOVE NORTH", _move_north)
+		_add_action_button("> %s NORTH" % dir_prefix, _move_north)
 	if pos.y > 0:
-		_add_action_button("> MOVE SOUTH", _move_south)
+		_add_action_button("> %s SOUTH" % dir_prefix, _move_south)
 	if pos.x < MAP_SIZE - 1:
-		_add_action_button("> MOVE EAST", _move_east)
+		_add_action_button("> %s EAST" % dir_prefix, _move_east)
 	if pos.x > 0:
-		_add_action_button("> MOVE WEST", _move_west)
+		_add_action_button("> %s WEST" % dir_prefix, _move_west)
 
 	# Loot
 	var room: Dictionary = rooms[pos.x][pos.y]
@@ -478,6 +542,13 @@ func _show_normal_actions() -> void:
 	# Extract — always available at EX zones
 	if room["is_extract"]:
 		_add_action_button(">> EXTRACT <<", _extract, Color(0, 1, 0))
+
+
+func _update_actions() -> void:
+	if in_combat:
+		_show_combat_actions()
+	else:
+		_show_normal_actions()
 
 
 func _show_combat_actions() -> void:
@@ -521,14 +592,70 @@ func _advance_turn(cost: int = 1) -> void:
 	_update_ui()
 
 
+func _check_noise(mode: String) -> void:
+	var chance: float = NOISE_CHANCE.get(mode, 0.0)
+	if chance <= 0.0:
+		return
+	if randf() < chance:
+		var enemy: Dictionary = WANDERING_ENEMIES[randi() % WANDERING_ENEMIES.size()].duplicate()
+		var current_room: Dictionary = rooms[GameData.player_pos.x][GameData.player_pos.y]
+		current_room["enemies"].append(enemy)
+		_add_log("[color=#ff8800]⚠ Your movement attracted attention! Something is here.[/color]")
+
+
 func _move(direction: Vector2i, dir_name: String) -> void:
 	if in_combat:
 		return
+
+	var map_size: int = MAP_SIZE
+
+	if move_mode == "sprint":
+		# Sprint moves 2 blocks. Check both steps are in bounds.
+		var step1 := GameData.player_pos + direction
+		var step2 := GameData.player_pos + direction * 2
+
+		var step1_valid: bool = step1.x >= 0 and step1.x < map_size and step1.y >= 0 and step1.y < map_size
+		var step2_valid: bool = step2.x >= 0 and step2.x < map_size and step2.y >= 0 and step2.y < map_size
+
+		if not step1_valid:
+			_add_log("Can't sprint that way — wall.")
+			return
+
+		# Mark step1 as visited (passed through)
+		visited_rooms[step1.x][step1.y] = true
+
+		if step2_valid:
+			GameData.player_pos = step2
+		else:
+			# Only 1 step possible — move 1 block at sprint noise level
+			GameData.player_pos = step1
+
+		visited_rooms[GameData.player_pos.x][GameData.player_pos.y] = true
+		_add_log("[color=#ff8800]You sprint %s to [%d,%d].[/color]" % [dir_name, GameData.player_pos.x, GameData.player_pos.y])
+		_check_noise("sprint")
+
+	elif move_mode == "sneak":
+		var new_pos := GameData.player_pos + direction
+		if new_pos.x < 0 or new_pos.x >= map_size or new_pos.y < 0 or new_pos.y >= map_size:
+			_add_log("Can't move that way.")
+			return
+		GameData.player_pos = new_pos
+		visited_rooms[GameData.player_pos.x][GameData.player_pos.y] = true
+		_add_log("[color=#88aaff]You sneak %s to [%d,%d]. Silent.[/color]" % [dir_name, GameData.player_pos.x, GameData.player_pos.y])
+		# No noise check for sneak
+
+	else:  # normal
+		var new_pos := GameData.player_pos + direction
+		if new_pos.x < 0 or new_pos.x >= map_size or new_pos.y < 0 or new_pos.y >= map_size:
+			_add_log("Can't move that way.")
+			return
+		GameData.player_pos = new_pos
+		visited_rooms[GameData.player_pos.x][GameData.player_pos.y] = true
+		_add_log("Moved %s to [%d,%d]." % [dir_name, GameData.player_pos.x, GameData.player_pos.y])
+		_check_noise("normal")
+
 	previous_pos = GameData.player_pos
-	GameData.player_pos += direction
-	visited_rooms[GameData.player_pos.x][GameData.player_pos.y] = true
 	_advance_turn()
-	_add_log("Moved %s to [%d,%d]" % [dir_name, GameData.player_pos.x, GameData.player_pos.y])
 	_update_ui()
 	_update_minimap()
 	_show_room()
