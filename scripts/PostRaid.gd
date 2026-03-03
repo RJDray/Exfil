@@ -49,7 +49,8 @@ func _show_death() -> void:
 			items_text.add_text("  x %s\n" % item["name"])
 		items_text.pop()
 
-	xp_label.text = "You keep: %d XP (20%% salvage)" % xp_earned
+	var lvl := GameData.get_level()
+	xp_label.text = "You keep: %d XP (20%% salvage) | LVL %d" % [xp_earned, lvl]
 
 
 func _show_extraction() -> void:
@@ -73,10 +74,13 @@ func _show_extraction() -> void:
 			var extra := ""
 			if item.get("type") == "weapon":
 				extra = " [DMG:%d]" % item.get("damage", 0)
+			elif item.get("type") == "armor":
+				extra = " [ARMOR:-%d%%]" % int(item.get("damage_reduction", 0.0) * 100)
 			items_text.add_text("  + %s (%dxp)%s\n" % [item["name"], item["value"], extra])
 		items_text.pop()
 
-	xp_label.text = "XP earned: %d" % score
+	var lvl := GameData.get_level()
+	xp_label.text = "XP earned: %d | LVL %d" % [score, lvl]
 
 
 func _on_return_pressed() -> void:

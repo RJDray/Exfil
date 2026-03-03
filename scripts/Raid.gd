@@ -52,7 +52,7 @@ func _ready() -> void:
 
 func _toggle_minimap() -> void:
 	minimap_expanded = !minimap_expanded
-	map_toggle_btn.text = "🗺  MAP  " + ("▲" if minimap_expanded else "▼")
+	map_toggle_btn.text = "MAP  " + ("^" if minimap_expanded else "v")
 	_update_minimap()
 
 
@@ -125,9 +125,9 @@ const ROOM_ABBREVIATIONS := {
 }
 
 const ENEMY_TYPES := {
-	"Scav": { "loot_table": ["Scrap Metal", "Bandage", "Gunpowder"] },
-	"Armoured": { "loot_table": ["Copper Wire", "Circuit Board", "Medkit"] },
-	"Elite": { "loot_table": ["Gold Watch", "USB Drive", "Pistol"] },
+	"Scav": { "loot_table": ["Scrap Metal", "Bandage", "Gunpowder", "Cloth Strips", "Metal Scrap"] },
+	"Armoured": { "loot_table": ["Copper Wire", "Circuit Board", "Medkit", "Gun Parts", "Rubber Seal"] },
+	"Elite": { "loot_table": ["Gold Watch", "USB Drive", "Pistol", "Gun Parts", "Adhesive"] },
 }
 const ENEMY_NAMES_BY_TIER := {
 	"Scav": ["Scav", "Raider", "Feral Dog"],
@@ -139,6 +139,7 @@ const ENEMY_NAMES_BY_TIER := {
 func _generate_map() -> void:
 	rooms = []
 	var extract_count := 0
+	var scav_rank := GameData.get_skill_rank("scavenger")
 
 	for x in MAP_SIZE:
 		var col: Array = []
@@ -174,7 +175,7 @@ func _generate_map() -> void:
 				var descs_list: Array = ROOM_DESCRIPTIONS.get(room["type"], ["An empty room."])
 				room["desc"] = descs_list[randi() % descs_list.size()]
 
-				room["loot"] = ItemDatabase.get_random_loot(room["type"])
+				room["loot"] = ItemDatabase.get_random_loot(room["type"], scav_rank)
 				room["enemies"] = _generate_enemies(x, y)
 				room["is_extract"] = is_extract
 				room["is_looted"] = false
@@ -192,7 +193,7 @@ func _generate_map() -> void:
 				rooms[ex][ey]["name"] = "Extraction Point"
 				rooms[ex][ey]["desc"] = "Open ground with clear sight lines. Flares mark the evac zone."
 				rooms[ex][ey]["is_extract"] = true
-				rooms[ex][ey]["loot"] = ItemDatabase.get_random_loot("extraction")
+				rooms[ex][ey]["loot"] = ItemDatabase.get_random_loot("extraction", scav_rank)
 
 
 func _generate_enemies(x: int, y: int) -> Array:
@@ -258,9 +259,9 @@ func _update_ui() -> void:
 		hp_color = "#ff4444"
 	elif GameData.current_hp < 60:
 		hp_color = "#ffb347"
-	hp_label.text = "HP: %d" % GameData.current_hp
+	hp_label.text = "HP: %d/%d" % [GameData.current_hp, GameData.max_hp]
 
-	weight_label.text = "WT: %.1f/%dkg" % [GameData.current_weight, GameData.max_weight]
+	weight_label.text = "WT: %.1f/%.0fkg" % [GameData.current_weight, GameData.max_weight]
 
 	var pos := GameData.player_pos
 	var room: Dictionary = rooms[pos.x][pos.y]
@@ -272,7 +273,10 @@ func _update_ui() -> void:
 	elif GameData.current_turn >= 20:
 		status_label.text = "Extract window opens in %d turns" % (EXTRACT_WINDOW_START - GameData.current_turn)
 	else:
-		status_label.text = "Grid [%d,%d] | Dmg: %d" % [pos.x, pos.y, GameData.get_player_damage()]
+		var armor_text := ""
+		if GameData.get_armor_reduction() > 0:
+			armor_text = " | Armor: -%d%%" % int(GameData.get_armor_reduction() * 100)
+		status_label.text = "Grid [%d,%d] | Dmg: %d%s" % [pos.x, pos.y, GameData.get_player_damage(), armor_text]
 
 
 func _update_minimap() -> void:
@@ -426,13 +430,24 @@ func _show_normal_actions() -> void:
 		else:
 			_add_action_button("> EXTRACT (opens turn 25)", _try_extract_early, Color(0.4, 0.4, 0.4))
 	elif GameData.current_turn >= EXTRACT_WINDOW_START and GameData.current_turn <= EXTRACT_WINDOW_END:
-		_add_action_button("⚠ GO TO EX ZONE TO EXTRACT", func(): _add_log("Find an amber EX zone on the map and get there!"), Color(1, 0.4, 0.1))
+		_add_action_button("! GO TO EX ZONE TO EXTRACT", func(): _add_log("Find an amber EX zone on the map and get there!"), Color(1, 0.4, 0.1))
 
 
 func _show_combat_actions() -> void:
 	_clear_actions()
 	_add_action_button("> ATTACK (%d dmg)" % GameData.get_player_damage(), _attack, Color(1, 0.3, 0.3))
-	_add_action_button("> FLEE (60%%, costs 2 turns)", _flee, Color(1, 0.702, 0.278))
+
+	# Flee with dynamic chance from skills
+	var flee_pct := int(GameData.get_flee_chance() * 100)
+	_add_action_button("> FLEE (%d%%, costs 2 turns)" % flee_pct, _flee, Color(1, 0.702, 0.278))
+
+	# Throwables (molotov)
+	for i in GameData.inventory.size():
+		var item: Dictionary = GameData.inventory[i]
+		if item.get("type") == "throwable":
+			var btn_text := "> THROW %s (%d dmg)" % [item["name"].to_upper(), item.get("damage", 0)]
+			var idx := i
+			_add_action_button(btn_text, func(): _use_throwable(idx), Color(1, 0.5, 0.0))
 
 	# Allow med use in combat
 	for i in GameData.inventory.size():
@@ -490,7 +505,12 @@ func _loot_room() -> void:
 	# Show loot items as pickup buttons
 	for item in room["loot"]:
 		var item_ref: Dictionary = item
-		var btn_text := "> TAKE: %s (%.1fkg, %dxp)" % [item["name"], item["weight"], item["value"]]
+		var extra := ""
+		if item.get("type") == "armor":
+			extra = " [-%d%%]" % int(item.get("damage_reduction", 0.0) * 100)
+		elif item.get("type") == "throwable":
+			extra = " [%d dmg]" % item.get("damage", 0)
+		var btn_text := "> TAKE: %s (%.1fkg, %dxp)%s" % [item["name"], item["weight"], item["value"], extra]
 		_add_action_button(btn_text, func(): _pick_up_item(item_ref), Color(1, 0.702, 0.278))
 
 	_add_action_button("> DONE LOOTING", func():
@@ -504,7 +524,10 @@ func _loot_room() -> void:
 
 func _pick_up_item(item: Dictionary) -> void:
 	if GameData.add_to_inventory(item):
-		_add_log("[color=#ffb347]Picked up: %s[/color]" % item["name"])
+		var extra_msg := ""
+		if item.get("type") == "armor" and GameData.equipped_armor.get("name") == item.get("name"):
+			extra_msg = " [EQUIPPED]"
+		_add_log("[color=#ffb347]Picked up: %s%s[/color]" % [item["name"], extra_msg])
 		var pos := GameData.player_pos
 		var loot: Array = rooms[pos.x][pos.y]["loot"]
 		for i in loot.size():
@@ -542,9 +565,15 @@ func _check_inventory() -> void:
 				extra = " [DMG:%d]" % item.get("damage", 0)
 			elif item.get("type") == "med":
 				extra = " [HEAL:%d]" % item.get("heal", 0)
+			elif item.get("type") == "armor":
+				extra = " [ARMOR: -%d%%]" % int(item.get("damage_reduction", 0.0) * 100)
+			elif item.get("type") == "throwable":
+				extra = " [DMG:%d]" % item.get("damage", 0)
 			_add_log("  %s (%.1fkg, %dxp)%s" % [item["name"], item["weight"], item["value"], extra])
 		if not GameData.equipped_weapon.is_empty():
-			_add_log("[color=#00ff41]Equipped: %s[/color]" % GameData.equipped_weapon["name"])
+			_add_log("[color=#00ff41]Weapon: %s[/color]" % GameData.equipped_weapon["name"])
+		if not GameData.equipped_armor.is_empty():
+			_add_log("[color=#4dc8ff]Armor: %s (-%d%%)[/color]" % [GameData.equipped_armor["name"], int(GameData.get_armor_reduction() * 100)])
 
 	_add_action_button("> BACK", func():
 		_update_ui()
@@ -599,14 +628,17 @@ func _drop_enemy_loot(enemy: Dictionary) -> void:
 func _attack() -> void:
 	var roll := randf()
 	var dmg := GameData.get_player_damage()
+	var crit_chance := GameData.get_crit_chance()
+	var miss_threshold := 0.15
 
-	if roll < 0.15:
+	if roll < miss_threshold:
 		# 15% miss
 		_add_log("[color=#aaaaaa]MISS! Your attack goes wide.[/color]")
 		dmg = 0
-	elif roll < 0.35:
-		# 20% crit (2x damage)
-		dmg *= 2
+	elif roll < miss_threshold + crit_chance:
+		# Crit with skill-based multiplier
+		var crit_mult := GameData.get_crit_multiplier()
+		dmg = int(float(dmg) * crit_mult)
 		_add_log("[color=#ff00ff]CRITICAL HIT! You deal %d damage to %s![/color]" % [dmg, current_enemy["name"]])
 	else:
 		_add_log("You hit %s for %d damage." % [current_enemy["name"], dmg])
@@ -617,6 +649,46 @@ func _attack() -> void:
 		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
 		_drop_enemy_loot(current_enemy)
 		# Remove enemy from room
+		var pos := GameData.player_pos
+		var enemies: Array = rooms[pos.x][pos.y]["enemies"]
+		for i in enemies.size():
+			if enemies[i] == current_enemy:
+				enemies.remove_at(i)
+				break
+		in_combat = false
+		current_enemy = {}
+		_advance_turn()
+		_update_ui()
+		_show_room()
+		return
+
+	# Enemy attacks back
+	_enemy_attacks()
+	if GameData.current_hp <= 0:
+		return
+
+	_advance_turn()
+	_update_ui()
+	_show_combat_actions()
+
+
+func _use_throwable(index: int) -> void:
+	if index < 0 or index >= GameData.inventory.size():
+		return
+	var item: Dictionary = GameData.inventory[index]
+	if item.get("type") != "throwable":
+		return
+	var throw_dmg: int = int(item.get("damage", 0))
+	# Remove from inventory
+	GameData.current_weight -= item.get("weight", 0.0)
+	GameData.inventory.remove_at(index)
+
+	_add_log("[color=#ff8800]MOLOTOV! Enemy takes %d fire damage![/color]" % throw_dmg)
+	current_enemy["hp"] -= throw_dmg
+
+	if current_enemy["hp"] <= 0:
+		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
+		_drop_enemy_loot(current_enemy)
 		var pos := GameData.player_pos
 		var enemies: Array = rooms[pos.x][pos.y]["enemies"]
 		for i in enemies.size():
@@ -655,6 +727,16 @@ func _enemy_attacks() -> void:
 	else:
 		_add_log("[color=#ff4444]%s hits you for %d damage![/color]" % [current_enemy["name"], enemy_dmg])
 
+	# Apply armor damage reduction
+	if enemy_dmg > 0:
+		var reduction := GameData.get_armor_reduction()
+		if reduction > 0.0:
+			var absorbed := int(float(enemy_dmg) * reduction)
+			enemy_dmg -= absorbed
+			if enemy_dmg < 1 and absorbed > 0:
+				enemy_dmg = 1  # Minimum 1 damage through armor
+			_add_log("[color=#aaffaa]Armor absorbed %d damage[/color]" % absorbed)
+
 	GameData.current_hp -= enemy_dmg
 
 	if GameData.current_hp <= 0:
@@ -666,7 +748,8 @@ func _enemy_attacks() -> void:
 
 
 func _flee() -> void:
-	if randf() < 0.6:
+	var flee_chance := GameData.get_flee_chance()
+	if randf() < flee_chance:
 		_add_log("[color=#ffb347]You break contact and hold position![/color]")
 		# Remove enemy from room so _show_room() doesn't immediately restart combat
 		var pos := GameData.player_pos

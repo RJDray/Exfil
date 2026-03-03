@@ -27,12 +27,12 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 
 [node name="Header" type="Label" parent="MainVBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0.255, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 20
 text = "HOME BASE"
 horizontal_alignment = 1
 
@@ -40,13 +40,49 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.702, 0.278, 1)
-theme_override_font_sizes/font_size = 16
-text = "TOTAL XP: 0"
+theme_override_font_sizes/font_size = 12
+text = "LVL 1 | XP: 0 | Next: 100 XP | SP: 0"
 horizontal_alignment = 1
 
 [node name="Divider1" type="HSeparator" parent="MainVBox"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.3)
+
+[node name="TabBar" type="HBoxContainer" parent="MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="StashTab" type="Button" parent="MainVBox/TabBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 34)
+theme_override_colors/font_color = Color(0, 1, 0.255, 1)
+theme_override_font_sizes/font_size = 13
+text = "STASH"
+
+[node name="CraftTab" type="Button" parent="MainVBox/TabBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 34)
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+text = "CRAFT"
+
+[node name="SkillsTab" type="Button" parent="MainVBox/TabBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 34)
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+text = "SKILLS"
+
+[node name="TabDivider" type="HSeparator" parent="MainVBox"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0, 1, 0.255, 0.15)
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MainVBox"]
 layout_mode = 2
@@ -56,75 +92,107 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 6
 
-[node name="StashMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
-
-[node name="StashVBox" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashMargin"]
+[node name="StashPanel" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="StashLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/StashMargin/StashVBox"]
+[node name="StashMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="StashVBox" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/StashMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="StashLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/StashMargin/StashVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0.255, 0.8)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "STASH (0 / 10 slots)"
 
-[node name="StashList" type="RichTextLabel" parent="MainVBox/ScrollContainer/ContentVBox/StashMargin/StashVBox"]
+[node name="StashList" type="RichTextLabel" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/StashMargin/StashVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 80)
+custom_minimum_size = Vector2(0, 60)
 bbcode_enabled = true
 theme_override_colors/default_color = Color(0.6, 0.6, 0.6, 1)
-theme_override_font_sizes/normal_font_size = 12
+theme_override_font_sizes/normal_font_size = 11
 fit_content = true
 scroll_active = false
 
-[node name="Divider2" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox"]
+[node name="WorkbenchDivider" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.15)
 
-[node name="WorkbenchMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
+[node name="WorkbenchMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
 
-[node name="WorkbenchVBox" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/WorkbenchMargin"]
+[node name="WorkbenchVBox" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/WorkbenchMargin"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="WorkbenchLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/WorkbenchMargin/WorkbenchVBox"]
+[node name="WorkbenchLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/WorkbenchMargin/WorkbenchVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0.255, 0.8)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "WORKBENCH"
 
-[node name="WorkbenchContainer" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/WorkbenchMargin/WorkbenchVBox"]
+[node name="WorkbenchContainer" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel/WorkbenchMargin/WorkbenchVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Divider3" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox"]
+[node name="UnlockDivider" type="HSeparator" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.15)
 
-[node name="UnlockMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
-
-[node name="UnlockLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/UnlockMargin"]
+[node name="UnlockLabel" type="Label" parent="MainVBox/ScrollContainer/ContentVBox/StashPanel"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "Next stash slot: 0 / 100 XP"
 horizontal_alignment = 1
+
+[node name="CraftPanel" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="CraftMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox/CraftPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="CraftContainer" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/CraftPanel/CraftMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SkillsPanel" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SkillsMargin" type="MarginContainer" parent="MainVBox/ScrollContainer/ContentVBox/SkillsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="SkillsContainer" type="VBoxContainer" parent="MainVBox/ScrollContainer/ContentVBox/SkillsPanel/SkillsMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="Divider4" type="HSeparator" parent="MainVBox"]
 layout_mode = 2
@@ -138,9 +206,9 @@ theme_override_constants/margin_right = 60
 [node name="ReadyButton" type="Button" parent="MainVBox/ButtonMargin"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 50)
+custom_minimum_size = Vector2(0, 44)
 theme_override_colors/font_color = Color(0, 1, 0.255, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = "[ READY UP ]"
 
 [node name="StatusLabel" type="Label" parent="MainVBox"]
@@ -153,4 +221,4 @@ horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="MainVBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 4)
