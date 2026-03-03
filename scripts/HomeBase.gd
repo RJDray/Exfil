@@ -283,7 +283,7 @@ func _update_skills_display() -> void:
 
 			# Description
 			var desc_lbl := Label.new()
-			var desc_text := skill["desc"]
+			var desc_text: String = skill["desc"]
 			if prereq != "":
 				var prereq_def: Dictionary = SkillTree.SKILLS.get(prereq, {})
 				var prereq_name: String = prereq_def.get("name", prereq)
