@@ -8,9 +8,9 @@ const MAP_SIZE := 7
 const NOISE_CHANCE := {"sneak": 0.0, "normal": 0.10, "sprint": 0.35}
 
 const WANDERING_ENEMIES := [
-	{"name": "Scav Patrol", "hp": 35, "damage": 12, "xp_value": 30, "desc": "A roaming scav drawn by noise."},
-	{"name": "Wandering Guard", "hp": 45, "damage": 14, "xp_value": 35, "desc": "A guard who heard something."},
-	{"name": "Alert Sentry", "hp": 30, "damage": 18, "xp_value": 40, "desc": "Highly trained. On high alert."},
+	{"name": "Scav Patrol", "hp": 35, "damage": 8, "xp_value": 30, "desc": "A roaming scav drawn by noise."},
+	{"name": "Wandering Guard", "hp": 45, "damage": 9, "xp_value": 35, "desc": "A guard who heard something."},
+	{"name": "Alert Sentry", "hp": 30, "damage": 12, "xp_value": 40, "desc": "Highly trained. On high alert."},
 ]
 
 # Map data
@@ -153,10 +153,10 @@ const POI_DESCS := [
 ]
 
 const POI_BOSSES := [
-	{"name": "Scav Boss", "hp": 90, "damage": 22, "xp": 200, "desc": "A heavily-armed scavenger leader."},
-	{"name": "Rival Operative", "hp": 80, "damage": 25, "xp": 200, "desc": "Trained and dangerous. Here for the same loot."},
-	{"name": "Military Elite", "hp": 110, "damage": 20, "xp": 250, "desc": "Former special forces. Not happy to see you."},
-	{"name": "Cult Enforcer", "hp": 95, "damage": 18, "xp": 200, "desc": "Fanatical. Heavily armoured. Unpredictable."},
+	{"name": "Scav Boss", "hp": 90, "damage": 14, "xp": 200, "desc": "A heavily-armed scavenger leader."},
+	{"name": "Rival Operative", "hp": 80, "damage": 16, "xp": 200, "desc": "Trained and dangerous. Here for the same loot."},
+	{"name": "Military Elite", "hp": 110, "damage": 13, "xp": 250, "desc": "Former special forces. Not happy to see you."},
+	{"name": "Cult Enforcer", "hp": 95, "damage": 12, "xp": 200, "desc": "Fanatical. Heavily armoured. Unpredictable."},
 ]
 
 
@@ -270,13 +270,13 @@ func _generate_enemies(x: int, y: int) -> Array:
 		match tier:
 			"Scav":
 				base_hp = randi_range(10, 18) + GameData.run_count * 3
-				base_dmg = randi_range(5, 10) + GameData.run_count * 2
+				base_dmg = randi_range(3, 7) + GameData.run_count
 			"Armoured":
 				base_hp = randi_range(22, 30) + GameData.run_count * 4
-				base_dmg = randi_range(10, 18) + GameData.run_count * 2
+				base_dmg = randi_range(7, 12) + GameData.run_count
 			_: # Elite
 				base_hp = randi_range(38, 55) + GameData.run_count * 5
-				base_dmg = randi_range(18, 28) + GameData.run_count * 3
+				base_dmg = randi_range(12, 18) + GameData.run_count * 2
 		enemies.append({
 			"name": names[randi() % names.size()],
 			"hp": base_hp,
