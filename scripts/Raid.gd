@@ -13,6 +13,21 @@ const WANDERING_ENEMIES := [
 	{"name": "Alert Sentry", "hp": 30, "damage": 12, "xp_value": 40, "desc": "Highly trained. On high alert."},
 ]
 
+# VATS-style targeting — body parts shared by all human enemies
+const BODY_PARTS := [
+	{"name": "HEAD",  "icon": "💀", "hit_chance": 0.30, "dmg_mult": 2.2, "effect": ""},
+	{"name": "TORSO", "icon": "❤️", "hit_chance": 0.80, "dmg_mult": 1.0, "effect": ""},
+	{"name": "LEGS",  "icon": "🦵", "hit_chance": 0.60, "dmg_mult": 0.65, "effect": "cripple"},
+]
+
+# Boss-specific weak spots (extra targeting option)
+const BOSS_WEAK_SPOTS := {
+	"Scav Boss":       {"name": "EXPOSED FLANK",  "icon": "⚡", "hit_chance": 0.22, "dmg_mult": 3.0, "effect": ""},
+	"Rival Operative": {"name": "THROAT",         "icon": "⚡", "hit_chance": 0.20, "dmg_mult": 3.5, "effect": ""},
+	"Military Elite":  {"name": "ARMOUR GAP",     "icon": "⚡", "hit_chance": 0.18, "dmg_mult": 4.0, "effect": ""},
+	"Cult Enforcer":   {"name": "EXPOSED HEAD",   "icon": "⚡", "hit_chance": 0.25, "dmg_mult": 3.0, "effect": "stun"},
+}
+
 # Map data
 var rooms: Array = []  # 2D array [x][y] of room dictionaries
 var previous_pos: Vector2i = Vector2i(0, 0)
@@ -22,6 +37,8 @@ var move_mode: String = "normal"
 # Combat state
 var in_combat: bool = false
 var current_enemy: Dictionary = {}
+var enemy_crippled: bool = false
+var enemy_stunned: bool = false
 
 # UI references
 @onready var turn_label: Label = %TurnLabel
@@ -422,6 +439,8 @@ func _show_room() -> void:
 				_add_log("[color=#ff4444]SPOTTED! The %s heard you![/color]" % enemy_candidate.get("name", "enemy"))
 				in_combat = true
 				current_enemy = enemy_candidate
+				enemy_crippled = false
+				enemy_stunned = false
 				_add_log("[color=#ff4444]%s (HP: %d, DMG: %d)[/color]" % [
 					current_enemy["name"], current_enemy["hp"], current_enemy["damage"]
 				])
@@ -430,6 +449,8 @@ func _show_room() -> void:
 		else:
 			in_combat = true
 			current_enemy = enemy_candidate
+			enemy_crippled = false
+			enemy_stunned = false
 			_add_log("[color=#ff4444]CONTACT! %s (HP: %d, DMG: %d)[/color]" % [
 				current_enemy["name"], current_enemy["hp"], current_enemy["damage"]
 			])
@@ -606,27 +627,166 @@ func _update_actions() -> void:
 
 func _show_combat_actions() -> void:
 	_clear_actions()
-	_add_action_button("> ATTACK (%d dmg)" % GameData.get_player_damage(), _attack, Color(1, 0.3, 0.3))
 
-	# Flee with dynamic chance from skills
+	# Show enemy portrait + HP in the room description area
+	var portrait := _get_enemy_portrait(current_enemy.get("name", ""))
+	var hp: int = current_enemy.get("hp", 0)
+	var max_hp: int = current_enemy.get("max_hp", hp)
+	var hp_filled := int((float(hp) / float(max_hp)) * 8.0)
+	var hp_bar := "[color=#ff4444]%s[/color][color=#333333]%s[/color]" % [
+		"█".repeat(hp_filled), "█".repeat(8 - hp_filled)
+	]
+	var status_str := ""
+	if enemy_crippled:
+		status_str = "\n[color=#ffaa00]⚠ CRIPPLED[/color]"
+	if enemy_stunned:
+		status_str += "\n[color=#ffcc00]⚡ STUNNED[/color]"
+	room_desc.text = "[center]%s\n%s  %d/%d HP%s[/center]" % [portrait, hp_bar, hp, max_hp, status_str]
+	room_title.text = "⚔  %s" % current_enemy.get("name", "ENEMY").to_upper()
+
+	# Targeting options (VATS-style)
+	var player_dmg := GameData.get_player_damage()
+	var targets := _get_combat_targets()
+	for part in targets:
+		var hit_pct := int(part["hit_chance"] * 100)
+		var dmg_val := int(player_dmg * part["dmg_mult"])
+		var fx := ""
+		if part["effect"] == "cripple": fx = "  ⚠ CRIPPLE"
+		elif part["effect"] == "stun":  fx = "  ⚡ STUN"
+		var label := "%s %s   %d%%  → %d dmg%s" % [part["icon"], part["name"], hit_pct, dmg_val, fx]
+		var p: Dictionary = part
+		_add_action_button(label, func(): _attack_targeted(p), Color(1, 0.35, 0.35))
+
+	# Flee
 	var flee_pct := int(GameData.get_flee_chance() * 100)
-	_add_action_button("> FLEE (%d%%, costs 2 turns)" % flee_pct, _flee, Color(1, 0.702, 0.278))
+	_add_action_button("💨 FLEE   %d%%  — costs 2 turns" % flee_pct, _flee, Color(1, 0.702, 0.278))
 
-	# Throwables (molotov)
+	# Throwables
 	for i in GameData.inventory.size():
 		var item: Dictionary = GameData.inventory[i]
 		if item.get("type") == "throwable":
-			var btn_text := "> THROW %s (%d dmg)" % [item["name"].to_upper(), item.get("damage", 0)]
+			var btn_text := "🔥 THROW %s  %d dmg" % [item["name"].to_upper(), item.get("damage", 0)]
 			var idx := i
 			_add_action_button(btn_text, func(): _use_throwable(idx), Color(1, 0.5, 0.0))
 
-	# Allow med use in combat
+	# Meds
 	for i in GameData.inventory.size():
 		var item: Dictionary = GameData.inventory[i]
 		if item.get("type") == "med":
-			var btn_text := "> USE %s (HP+%d)" % [item["name"].to_upper(), item.get("heal", 0)]
+			var btn_text := "💊 USE %s  +%d HP" % [item["name"].to_upper(), item.get("heal", 0)]
 			var idx := i
 			_add_action_button(btn_text, func(): _use_med_combat(idx), Color(0.3, 0.8, 1.0))
+
+
+func _get_combat_targets() -> Array:
+	var parts: Array = BODY_PARTS.duplicate(true)
+	var enemy_name: String = current_enemy.get("name", "")
+	if enemy_name in BOSS_WEAK_SPOTS:
+		parts.append(BOSS_WEAK_SPOTS[enemy_name].duplicate())
+	return parts
+
+
+func _get_enemy_portrait(enemy_name: String) -> String:
+	match enemy_name:
+		"Scav Patrol":
+			return "[color=#ff7744]  _o_\n (   )\n  | |\n / \\ [/color]"
+		"Wandering Guard":
+			return "[color=#aabbff]  [#]\n  |o|\n /|||\\ \n  | |[/color]"
+		"Alert Sentry":
+			return "[color=#ff4444]  ###\n [>o<]\n /|X|\\ \n  |||[/color]"
+		"Scav Boss":
+			return "[color=#ff3300]  @@@\n [>O<]\n /|||\\ \n  ||| \n /   \\ [/color]"
+		"Rival Operative":
+			return "[color=#cc88ff]  _ _\n(o   o)\n  |V|\n /|||\\ \n  | |[/color]"
+		"Military Elite":
+			return "[color=#8899ff]  ■■■\n [■o■]\n /■■\\ \n  ||||[/color]"
+		"Cult Enforcer":
+			return "[color=#ff9900]  /^\\ \n (>o<)\n  \\|/\n /|||\\ \n  | |[/color]"
+		_:
+			return "[color=#aaaaaa]  (o)\n  /|\\ \n  / \\ [/color]"
+
+
+func _attack_targeted(part: Dictionary) -> void:
+	var roll := randf()
+	var hit_chance: float = part["hit_chance"]
+	var player_dmg := GameData.get_player_damage()
+
+	if roll > hit_chance:
+		_add_log("[color=#aaaaaa]MISS! Shot at %s — went wide.[/color]" % part["name"])
+	else:
+		var raw_dmg := int(player_dmg * part["dmg_mult"])
+		# Crit still applies on targeted shots
+		var crit_roll := randf()
+		if crit_roll < GameData.get_crit_chance():
+			raw_dmg = int(raw_dmg * GameData.get_crit_multiplier())
+			_add_log("[color=#ff00ff]CRITICAL! %s — %d damage![/color]" % [part["name"], raw_dmg])
+		else:
+			_add_log("[color=#ff4444]Hit %s — %d damage to %s.[/color]" % [part["name"], raw_dmg, current_enemy["name"]])
+
+		current_enemy["hp"] -= raw_dmg
+
+		# Apply status effects
+		if part["effect"] == "cripple" and not enemy_crippled:
+			enemy_crippled = true
+			_add_log("[color=#ffaa00]⚠ %s is CRIPPLED — reduced damage.[/color]" % current_enemy["name"])
+		elif part["effect"] == "stun":
+			enemy_stunned = true
+			_add_log("[color=#ffcc00]⚡ %s is STUNNED — skips next attack.[/color]" % current_enemy["name"])
+
+		if current_enemy["hp"] <= 0:
+			_on_enemy_killed()
+			return
+
+	# Enemy counter
+	if enemy_stunned:
+		enemy_stunned = false
+		_add_log("[color=#ffcc00]%s shakes off the stun.[/color]" % current_enemy["name"])
+	else:
+		_enemy_attacks()
+		if GameData.current_hp <= 0:
+			return
+
+	_advance_turn()
+	_update_ui()
+	_show_combat_actions()
+
+
+func _on_enemy_killed() -> void:
+	_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
+	var pos := GameData.player_pos
+	var room: Dictionary = rooms[pos.x][pos.y]
+
+	if current_enemy.get("is_boss", false) and room.get("is_poi", false):
+		var boss_xp: int = current_enemy.get("xp", 200)
+		GameData.add_xp(boss_xp)
+		var poi_loot: Array = ItemDatabase.get_poi_loot()
+		room["loot"] = poi_loot
+		room["is_looted"] = false
+		room["poi_cleared"] = true
+		_add_log("[color=#ffdd00]⚡ MAJOR FIND! +%d XP — Premium loot recovered.[/color]" % boss_xp)
+	else:
+		_drop_enemy_loot(current_enemy)
+		var drops := _generate_enemy_drops(current_enemy)
+		if drops.size() > 0:
+			var drop_names: Array = []
+			for d in drops:
+				room["loot"].append(d)
+				drop_names.append(d["name"])
+			room["is_looted"] = false
+			_add_log("[color=#aaffaa]Enemy dropped: %s[/color]" % ", ".join(drop_names))
+
+	var enemies: Array = room["enemies"]
+	for i in enemies.size():
+		if enemies[i] == current_enemy:
+			enemies.remove_at(i)
+			break
+	in_combat = false
+	current_enemy = {}
+	enemy_crippled = false
+	enemy_stunned = false
+	_advance_turn()
+	_update_ui()
+	_show_room()
 
 
 # --- Actions ---
@@ -885,42 +1045,7 @@ func _attack() -> void:
 	current_enemy["hp"] -= dmg
 
 	if current_enemy["hp"] <= 0:
-		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
-		var pos := GameData.player_pos
-		var room: Dictionary = rooms[pos.x][pos.y]
-
-		# Check if this was a POI boss
-		if current_enemy.get("is_boss", false) and room.get("is_poi", false):
-			var boss_xp: int = current_enemy.get("xp", 200)
-			GameData.add_xp(boss_xp)
-			var poi_loot: Array = ItemDatabase.get_poi_loot()
-			room["loot"] = poi_loot
-			room["is_looted"] = false
-			room["poi_cleared"] = true
-			_add_log("[color=#ffdd00]⚡ MAJOR FIND! +%d XP — Premium loot recovered.[/color]" % boss_xp)
-		else:
-			_drop_enemy_loot(current_enemy)
-			# Enemy component drops added to room loot
-			var drops := _generate_enemy_drops(current_enemy)
-			if drops.size() > 0:
-				var drop_names: Array = []
-				for d in drops:
-					room["loot"].append(d)
-					drop_names.append(d["name"])
-				room["is_looted"] = false
-				_add_log("[color=#aaffaa]Enemy dropped: %s[/color]" % ", ".join(drop_names))
-
-		# Remove enemy from room
-		var enemies: Array = room["enemies"]
-		for i in enemies.size():
-			if enemies[i] == current_enemy:
-				enemies.remove_at(i)
-				break
-		in_combat = false
-		current_enemy = {}
-		_advance_turn()
-		_update_ui()
-		_show_room()
+		_on_enemy_killed()
 		return
 
 	# Enemy attacks back
@@ -948,39 +1073,7 @@ func _use_throwable(index: int) -> void:
 	current_enemy["hp"] -= throw_dmg
 
 	if current_enemy["hp"] <= 0:
-		_add_log("[color=#00ff41]%s eliminated.[/color]" % current_enemy["name"])
-		var pos := GameData.player_pos
-		var room: Dictionary = rooms[pos.x][pos.y]
-
-		if current_enemy.get("is_boss", false) and room.get("is_poi", false):
-			var boss_xp: int = current_enemy.get("xp", 200)
-			GameData.add_xp(boss_xp)
-			var poi_loot: Array = ItemDatabase.get_poi_loot()
-			room["loot"] = poi_loot
-			room["is_looted"] = false
-			room["poi_cleared"] = true
-			_add_log("[color=#ffdd00]⚡ MAJOR FIND! +%d XP — Premium loot recovered.[/color]" % boss_xp)
-		else:
-			_drop_enemy_loot(current_enemy)
-			var drops := _generate_enemy_drops(current_enemy)
-			if drops.size() > 0:
-				var drop_names: Array = []
-				for d in drops:
-					room["loot"].append(d)
-					drop_names.append(d["name"])
-				room["is_looted"] = false
-				_add_log("[color=#aaffaa]Enemy dropped: %s[/color]" % ", ".join(drop_names))
-
-		var enemies: Array = room["enemies"]
-		for i in enemies.size():
-			if enemies[i] == current_enemy:
-				enemies.remove_at(i)
-				break
-		in_combat = false
-		current_enemy = {}
-		_advance_turn()
-		_update_ui()
-		_show_room()
+		_on_enemy_killed()
 		return
 
 	# Enemy attacks back
@@ -996,6 +1089,10 @@ func _use_throwable(index: int) -> void:
 func _enemy_attacks() -> void:
 	var roll := randf()
 	var enemy_dmg: int = current_enemy["damage"]
+
+	# Cripple reduces enemy damage by 40%
+	if enemy_crippled:
+		enemy_dmg = int(enemy_dmg * 0.6)
 
 	if roll < 0.10:
 		# 10% miss
@@ -1041,6 +1138,8 @@ func _flee() -> void:
 				break
 		in_combat = false
 		current_enemy = {}
+		enemy_crippled = false
+		enemy_stunned = false
 		_advance_turn(2)
 		_update_ui()
 		_show_room()
