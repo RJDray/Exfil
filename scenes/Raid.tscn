@@ -74,48 +74,43 @@ horizontal_alignment = 2
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.2)
 
-[node name="ContentHBox" type="HBoxContainer" parent="MainVBox"]
+[node name="MapSection" type="VBoxContainer" parent="MainVBox"]
 layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 0
-
-[node name="LeftPanel" type="VBoxContainer" parent="MainVBox/ContentHBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(210, 0)
-size_flags_horizontal = 0
+custom_minimum_size = Vector2(0, 120)
 theme_override_constants/separation = 2
 
-[node name="MapTitle" type="Label" parent="MainVBox/ContentHBox/LeftPanel"]
+[node name="MapTitle" type="Label" parent="MainVBox/MapSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 1, 0.255, 0.5)
+theme_override_colors/font_color = Color(0, 1, 0.255, 0.4)
 theme_override_font_sizes/font_size = 9
 text = "◈  M A P"
 horizontal_alignment = 1
 
-[node name="MinimapMargin" type="MarginContainer" parent="MainVBox/ContentHBox/LeftPanel"]
+[node name="MinimapMargin" type="MarginContainer" parent="MainVBox/MapSection"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_right = 4
-theme_override_constants/margin_top = 2
+theme_override_constants/margin_top = 0
 theme_override_constants/margin_bottom = 2
 
-[node name="MinimapGrid" type="GridContainer" parent="MainVBox/ContentHBox/LeftPanel/MinimapMargin"]
+[node name="MinimapGrid" type="GridContainer" parent="MainVBox/MapSection/MinimapMargin"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 columns = 7
 
-[node name="VSeparator" type="VSeparator" parent="MainVBox/ContentHBox"]
+[node name="Divider2" type="HSeparator" parent="MainVBox"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.2)
 
-[node name="RightPanel" type="VBoxContainer" parent="MainVBox/ContentHBox"]
+[node name="ContentSection" type="VBoxContainer" parent="MainVBox"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 4
 
-[node name="RoomTitle" type="Label" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="RoomTitle" type="Label" parent="MainVBox/ContentSection"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(0, 24)
@@ -124,10 +119,10 @@ theme_override_font_sizes/font_size = 14
 text = "ROOM NAME"
 horizontal_alignment = 1
 
-[node name="RoomDesc" type="RichTextLabel" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="RoomDesc" type="RichTextLabel" parent="MainVBox/ContentSection"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 40)
 bbcode_enabled = true
 theme_override_colors/default_color = Color(0.65, 0.65, 0.65, 1)
 theme_override_font_sizes/normal_font_size = 12
@@ -135,37 +130,37 @@ fit_content = true
 scroll_active = false
 text = ""
 
-[node name="Divider2" type="HSeparator" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="Divider3" type="HSeparator" parent="MainVBox/ContentSection"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.15)
 
-[node name="ActionScroll" type="ScrollContainer" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="ActionScroll" type="ScrollContainer" parent="MainVBox/ContentSection"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionContainer" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel/ActionScroll"]
+[node name="ActionContainer" type="VBoxContainer" parent="MainVBox/ContentSection/ActionScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="Divider3" type="HSeparator" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="Divider4" type="HSeparator" parent="MainVBox/ContentSection"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.15)
 
-[node name="LogSection" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="LogSection" type="VBoxContainer" parent="MainVBox/ContentSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 90)
 theme_override_constants/separation = 2
 
-[node name="LogLabel" type="Label" parent="MainVBox/ContentHBox/RightPanel/LogSection"]
+[node name="LogLabel" type="Label" parent="MainVBox/ContentSection/LogSection"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.3, 0.3, 0.3, 1)
 theme_override_font_sizes/font_size = 9
 text = "— LOG —"
 horizontal_alignment = 1
 
-[node name="LogText" type="RichTextLabel" parent="MainVBox/ContentHBox/RightPanel/LogSection"]
+[node name="LogText" type="RichTextLabel" parent="MainVBox/ContentSection/LogSection"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -177,7 +172,7 @@ fit_content = true
 scroll_active = false
 text = ""
 
-[node name="Divider4" type="HSeparator" parent="MainVBox"]
+[node name="Divider5" type="HSeparator" parent="MainVBox"]
 layout_mode = 2
 theme_override_colors/separator_color = Color(0, 1, 0.255, 0.2)
 

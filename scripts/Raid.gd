@@ -50,7 +50,6 @@ var enemy_stunned: bool = false
 @onready var log_text: RichTextLabel = %LogText
 @onready var status_label: Label = %StatusLabel
 @onready var minimap_grid: GridContainer = %MinimapGrid
-var minimap_expanded: bool = true  # Always expanded — map is always shown
 
 var event_log: Array = []
 
@@ -322,10 +321,10 @@ func _update_minimap() -> void:
 		child.queue_free()
 
 	var pos := GameData.player_pos
-	# Compact: small dots. Expanded: labelled squares.
-	var cell_w := 36 if minimap_expanded else 18
-	var cell_h := 28 if minimap_expanded else 12
-	var font_size := 9 if minimap_expanded else 7
+	# Compact header map — fixed small cells
+	var cell_w := 18
+	var cell_h := 14
+	var font_size := 8
 
 	# y=6 at top (north), y=0 at south
 	for y_display in MAP_SIZE:
@@ -354,32 +353,32 @@ func _update_minimap() -> void:
 			if is_current:
 				# Player position — bright green
 				bg.color = Color("#00ff41")
-				cell.text = abbr if minimap_expanded else ""
+				cell.text = abbr
 				cell.add_theme_color_override("font_color", Color(0, 0, 0))
 			elif is_poi and not visited:
 				# Unvisited POI — dim gold (always revealed)
 				bg.color = Color(0.3, 0.25, 0.0)
-				cell.text = "⚡" if minimap_expanded else ""
+				cell.text = "⚡"
 				cell.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
 			elif is_poi and visited:
 				# Visited POI — bright gold
 				bg.color = Color(1.0, 0.85, 0.0)
-				cell.text = "⚡" if minimap_expanded else ""
+				cell.text = "⚡"
 				cell.add_theme_color_override("font_color", Color(0, 0, 0))
 			elif is_extract and not visited:
 				# Unvisited extract — dim amber (always reveal so player can navigate)
 				bg.color = Color("#2a1800")
-				cell.text = "EX" if minimap_expanded else ""
+				cell.text = "EX"
 				cell.add_theme_color_override("font_color", Color("#ffb347"))
 			elif is_extract and visited:
 				# Visited extract — bright amber
 				bg.color = Color("#ffb347")
-				cell.text = "EX" if minimap_expanded else ""
+				cell.text = "EX"
 				cell.add_theme_color_override("font_color", Color(0, 0, 0))
 			elif visited:
 				# Visited normal room — dark green
 				bg.color = Color("#1a3a1a")
-				cell.text = abbr if minimap_expanded else ""
+				cell.text = abbr
 				cell.add_theme_color_override("font_color", Color("#00ff41"))
 			else:
 				# Unvisited, unknown — near black
