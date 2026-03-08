@@ -8,9 +8,9 @@ const MAP_SIZE := 7
 const NOISE_CHANCE := {"sneak": 0.0, "normal": 0.10, "sprint": 0.35}
 
 const WANDERING_ENEMIES := [
-	{"name": "Scav Patrol", "hp": 35, "damage": 8, "xp_value": 30, "desc": "A roaming scav drawn by noise."},
-	{"name": "Wandering Guard", "hp": 45, "damage": 9, "xp_value": 35, "desc": "A guard who heard something."},
-	{"name": "Alert Sentry", "hp": 30, "damage": 12, "xp_value": 40, "desc": "Highly trained. On high alert."},
+	{"name": "Scav Patrol", "hp": 18, "damage": 6, "xp_value": 30, "desc": "A roaming scav drawn by noise."},
+	{"name": "Wandering Guard", "hp": 22, "damage": 8, "xp_value": 35, "desc": "A guard who heard something."},
+	{"name": "Alert Sentry", "hp": 20, "damage": 10, "xp_value": 40, "desc": "Highly trained. On high alert."},
 ]
 
 # VATS-style targeting — body parts shared by all human enemies
@@ -161,10 +161,10 @@ const POI_DESCS := [
 ]
 
 const POI_BOSSES := [
-	{"name": "Scav Boss", "hp": 90, "damage": 14, "xp": 200, "desc": "A heavily-armed scavenger leader."},
-	{"name": "Rival Operative", "hp": 80, "damage": 16, "xp": 200, "desc": "Trained and dangerous. Here for the same loot."},
-	{"name": "Military Elite", "hp": 110, "damage": 13, "xp": 250, "desc": "Former special forces. Not happy to see you."},
-	{"name": "Cult Enforcer", "hp": 95, "damage": 12, "xp": 200, "desc": "Fanatical. Heavily armoured. Unpredictable."},
+	{"name": "Scav Boss", "hp": 55, "damage": 12, "xp": 200, "desc": "A heavily-armed scavenger leader."},
+	{"name": "Rival Operative", "hp": 50, "damage": 14, "xp": 200, "desc": "Trained and dangerous. Here for the same loot."},
+	{"name": "Military Elite", "hp": 70, "damage": 12, "xp": 250, "desc": "Former special forces. Not happy to see you."},
+	{"name": "Cult Enforcer", "hp": 60, "damage": 11, "xp": 200, "desc": "Fanatical. Heavily armoured. Unpredictable."},
 ]
 
 
@@ -272,19 +272,19 @@ func _generate_enemies(x: int, y: int) -> Array:
 			tier = "Scav"
 
 		var names: Array = ENEMY_NAMES_BY_TIER[tier]
-		# HP tuned so a 15-dmg pistol kills in 1-2 shots (Scav), 2 (Armoured), 2-3 (Elite)
+		# HP tuned: early raids are easy — 15-dmg pistol kills Scav in 1 shot, scales up after run 3
 		var base_hp: int
 		var base_dmg: int
 		match tier:
 			"Scav":
-				base_hp = randi_range(10, 18) + GameData.run_count * 3
-				base_dmg = randi_range(3, 7) + GameData.run_count
+				base_hp = randi_range(8, 12) + GameData.run_count * 2
+				base_dmg = randi_range(3, 6) + GameData.run_count
 			"Armoured":
-				base_hp = randi_range(22, 30) + GameData.run_count * 4
-				base_dmg = randi_range(7, 12) + GameData.run_count
+				base_hp = randi_range(16, 22) + GameData.run_count * 3
+				base_dmg = randi_range(6, 10) + GameData.run_count
 			_: # Elite
-				base_hp = randi_range(38, 55) + GameData.run_count * 5
-				base_dmg = randi_range(12, 18) + GameData.run_count * 2
+				base_hp = randi_range(28, 38) + GameData.run_count * 4
+				base_dmg = randi_range(10, 15) + GameData.run_count * 2
 		enemies.append({
 			"name": names[randi() % names.size()],
 			"hp": base_hp,
