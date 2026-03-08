@@ -33,8 +33,7 @@ var current_enemy: Dictionary = {}
 @onready var log_text: RichTextLabel = %LogText
 @onready var status_label: Label = %StatusLabel
 @onready var minimap_grid: GridContainer = %MinimapGrid
-@onready var map_toggle_btn: Button = %MapToggleBtn
-var minimap_expanded: bool = false
+var minimap_expanded: bool = true  # Always expanded — map is always shown
 
 var event_log: Array = []
 
@@ -50,18 +49,11 @@ func _ready() -> void:
 		visited_rooms.append(col)
 	visited_rooms[0][0] = true
 	minimap_grid.columns = MAP_SIZE
-	map_toggle_btn.pressed.connect(_toggle_minimap)
 	_add_log("[color=#ffb347]RAID BEGINS. Extract at any EX zone or die.[/color]")
 	_add_log("You drop into the zone at grid [0,0].")
 	_update_ui()
 	_update_minimap()
 	_show_room()
-
-
-func _toggle_minimap() -> void:
-	minimap_expanded = !minimap_expanded
-	map_toggle_btn.text = "MAP  " + ("^" if minimap_expanded else "v")
-	_update_minimap()
 
 
 # --- Map Generation ---
@@ -462,11 +454,46 @@ func _clear_actions() -> void:
 func _add_action_button(text: String, callback: Callable, color: Color = Color(0, 1, 0.25)) -> void:
 	var btn := Button.new()
 	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 40)
+	btn.custom_minimum_size = Vector2(0, 34)
 	btn.add_theme_color_override("font_color", color)
-	btn.add_theme_font_size_override("font_size", 14)
+	btn.add_theme_font_size_override("font_size", 12)
 	btn.pressed.connect(callback)
 	action_container.add_child(btn)
+
+
+func _add_icon_btn(parent: Node, label: String, callback: Callable, color: Color) -> void:
+	var btn := Button.new()
+	btn.text = label
+	btn.custom_minimum_size = Vector2(56, 48)
+	btn.add_theme_font_size_override("font_size", 10)
+	btn.add_theme_color_override("font_color", color)
+	btn.pressed.connect(callback)
+	parent.add_child(btn)
+
+
+func _dpad_dir_btn(parent: Node, label: String, callback: Callable, enabled: bool) -> void:
+	var btn := Button.new()
+	btn.text = label
+	btn.custom_minimum_size = Vector2(52, 40)
+	btn.add_theme_font_size_override("font_size", 11)
+	if enabled:
+		btn.add_theme_color_override("font_color", Color(0, 1, 0.25))
+		btn.pressed.connect(callback)
+	else:
+		btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
+		btn.disabled = true
+	parent.add_child(btn)
+
+
+func _dpad_spacer(parent: Node, text: String = "") -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.custom_minimum_size = Vector2(52, 40)
+	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	parent.add_child(lbl)
 
 
 func _show_normal_actions() -> void:
@@ -522,44 +549,52 @@ func _show_normal_actions() -> void:
 	mode_desc.add_theme_font_size_override("font_size", 10)
 	action_container.add_child(mode_desc)
 
-	# Direction buttons (adapted text per mode)
-	var dir_prefix: String = ""
-	match move_mode:
-		"sneak": dir_prefix = "SNEAK"
-		"normal": dir_prefix = "MOVE"
-		"sprint": dir_prefix = "SPRINT"
+	# D-pad compass for movement
+	var can_n := pos.y < MAP_SIZE - 1
+	var can_s := pos.y > 0
+	var can_e := pos.x < MAP_SIZE - 1
+	var can_w := pos.x > 0
 
-	if pos.y < MAP_SIZE - 1:
-		_add_action_button("> %s NORTH" % dir_prefix, _move_north)
-	if pos.y > 0:
-		_add_action_button("> %s SOUTH" % dir_prefix, _move_south)
-	if pos.x < MAP_SIZE - 1:
-		_add_action_button("> %s EAST" % dir_prefix, _move_east)
-	if pos.x > 0:
-		_add_action_button("> %s WEST" % dir_prefix, _move_west)
+	var dpad := GridContainer.new()
+	dpad.columns = 3
+	dpad.add_theme_constant_override("h_separation", 4)
+	dpad.add_theme_constant_override("v_separation", 4)
+	action_container.add_child(dpad)
 
-	# Loot
+	# Row 1: [empty] [N] [empty]
+	_dpad_spacer(dpad)
+	_dpad_dir_btn(dpad, "⬆\nN", _move_north, can_n)
+	_dpad_spacer(dpad)
+	# Row 2: [W] [·] [E]
+	_dpad_dir_btn(dpad, "⬅\nW", _move_west, can_w)
+	_dpad_spacer(dpad, "·")
+	_dpad_dir_btn(dpad, "➡\nE", _move_east, can_e)
+	# Row 3: [empty] [S] [empty]
+	_dpad_spacer(dpad)
+	_dpad_dir_btn(dpad, "⬇\nS", _move_south, can_s)
+	_dpad_spacer(dpad)
+
+	# Utility icon strip
 	var room: Dictionary = rooms[pos.x][pos.y]
-	if not room["is_looted"] and room["loot"].size() > 0:
-		_add_action_button("> LOOT ROOM", _loot_room, Color(1, 0.702, 0.278))
+	var strip := HBoxContainer.new()
+	strip.add_theme_constant_override("separation", 4)
+	action_container.add_child(strip)
 
-	# Meds in inventory
+	if not room["is_looted"] and room["loot"].size() > 0:
+		_add_icon_btn(strip, "📦\nLOOT", _loot_room, Color(1, 0.702, 0.278))
+
+	# Meds as icon buttons
 	for i in GameData.inventory.size():
 		var item: Dictionary = GameData.inventory[i]
 		if item.get("type") == "med":
-			var btn_text := "> USE %s (HP+%d)" % [item["name"].to_upper(), item.get("heal", 0)]
 			var idx := i
-			_add_action_button(btn_text, func(): _use_med(idx), Color(0.3, 0.8, 1.0))
+			_add_icon_btn(strip, "💊\n+%d HP" % item.get("heal", 0), func(): _use_med(idx), Color(0.3, 0.8, 1.0))
 
-	# Hide (skip turn)
-	_add_action_button("> HIDE (skip turn)", _hide, Color(0.6, 0.6, 0.6))
+	_add_icon_btn(strip, "🫥\nHIDE", _hide, Color(0.55, 0.55, 0.55))
+	_add_icon_btn(strip, "🎒\nITEMS", _check_inventory, Color(0.55, 0.55, 0.55))
 
-	# Inventory
-	_add_action_button("> CHECK INVENTORY", _check_inventory, Color(0.6, 0.6, 0.6))
-
-	# Extract — always available at EX zones
 	if room["is_extract"]:
-		_add_action_button(">> EXTRACT <<", _extract, Color(0, 1, 0))
+		_add_icon_btn(strip, "🏁\nEXIT!", _extract, Color(0, 1, 0))
 
 
 func _update_actions() -> void:
